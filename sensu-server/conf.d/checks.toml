@@ -1,0 +1,9 @@
+[template]
+keys = [
+  "/sensu/checks"
+]
+owner = "root"
+mode = "0644"
+src = "checks.tmpl"
+dest = "/etc/sensu/conf.d/checks.json"
+reload_cmd = "/bin/kill -s HUP `cat /var/run/sensu.pid`"
