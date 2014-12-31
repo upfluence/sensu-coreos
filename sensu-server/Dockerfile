@@ -4,7 +4,7 @@ MAINTAINER Alexis Montagne <alexis.montagne@gmail.com>
 RUN curl -Ls https://github.com/kelseyhightower/confd/releases/download/v0.6.3/confd-0.6.3-linux-amd64 \
   > /usr/bin/confd
 
-RUN chmod +x /usr/local/bin/confd
+RUN chmod +x /usr/bin/confd
 RUN mkdir -p /etc/confd/{conf.d,templates} /etc/sensu/conf.d
 
 COPY conf.d/checks.toml /etc/confd/conf.d/checks.toml
