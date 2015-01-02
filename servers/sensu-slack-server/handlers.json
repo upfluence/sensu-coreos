@@ -1,0 +1,8 @@
+{
+  "handlers": {
+    "slack": {
+      "type": "pipe",
+      "command": "ruby /sensu/slack.rb"
+    }
+  }
+}
