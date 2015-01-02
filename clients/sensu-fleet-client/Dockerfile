@@ -7,3 +7,5 @@ RUN curl -sL https://github.com/coreos/fleet/releases/download/v0.9.0/fleet-v0.9
 
 ENV SENSU_NAME fleet_client
 ENV SENSU_SUBSCRIPTIONS fleet
+
+COPY check-fleet-status.rb /sensu/check-fleet-status.rb

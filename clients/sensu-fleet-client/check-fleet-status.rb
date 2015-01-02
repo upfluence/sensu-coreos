@@ -8,7 +8,7 @@ class FleetCheck < Sensu::Plugin::Check::CLI
          short: '-e ETCD_IP',
          long: '--etcd_ip ETCD_IP',
          description: 'ETCD peer ip',
-         default: 'http://172.17.42.1:4001'
+         default: ENV['ETCD_IP'] || 'http://172.17.42.1:4001'
 
   def run
     cmd = `fleetctl --endpoint #{config[:etcd_ip]} list-units -fields "sub,unit" -no-legend | grep failed`
