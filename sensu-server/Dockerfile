@@ -1,7 +1,9 @@
 FROM upfluence/sensu-base:latest
 MAINTAINER Alexis Montagne <alexis.montagne@gmail.com>
 
-RUN gem install sensu-plugin
+RUN curl -sL \
+  https://github.com/upfluence/sensu-plugin/releases/download/v1.1.0-upfluence/sensu-plugin-1.1.0.gem \
+  > /tmp/sensu-plugin.gem && gem install --local /tmp/sensu-plugin.gem
 
 RUN curl -Ls https://github.com/kelseyhightower/confd/releases/download/v0.6.3/confd-0.6.3-linux-amd64 \
   > /usr/bin/confd
