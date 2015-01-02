@@ -1,6 +1,8 @@
 FROM upfluence/sensu-base:latest
 MAINTAINER Alexis Montagne <alexis.montagne@gmail.com>
 
+RUN gem install sensu-plugin
+
 COPY run.sh /sensu/run.sh
 
 ENV SENSU_NAME default_client
