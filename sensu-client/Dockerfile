@@ -4,6 +4,9 @@ MAINTAINER Alexis Montagne <alexis.montagne@gmail.com>
 RUN gem install sensu-plugin
 
 COPY run.sh /sensu/run.sh
+COPY env_to_config.rb /sensu/env_to_config.rb
+
+RUN mkdir -p /etc/sensu/conf.d
 
 ENV SENSU_NAME default_client
 ENV SENSU_ADDRESS 127.0.0.1

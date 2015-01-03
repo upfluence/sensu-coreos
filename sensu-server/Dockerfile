@@ -1,6 +1,7 @@
 FROM upfluence/sensu-base:latest
 MAINTAINER Alexis Montagne <alexis.montagne@gmail.com>
 
+RUN gem instal mixlib-cli
 RUN curl -sL \
   https://github.com/upfluence/sensu-plugin/releases/download/v1.1.0-upfluence/sensu-plugin-1.1.0.gem \
   > /tmp/sensu-plugin.gem && gem install --local /tmp/sensu-plugin.gem
