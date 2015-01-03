@@ -6,8 +6,8 @@ config = {
     address: ENV['SENSU_ADDRESS'],
     keepalive: {
       thresholds: {
-        warning: ENV['SENSU_KEEP_ALIVE_WARNING'],
-        critical: ENV['SENSU_KEEP_ALIVE_WARNING']
+        warning: ENV['SENSU_KEEP_ALIVE_WARNING'].to_i,
+        critical: ENV['SENSU_KEEP_ALIVE_WARNING'].to_i
       },
       handler: ENV['SENSU_KEEP_ALIVE_HANDLER']
     },
