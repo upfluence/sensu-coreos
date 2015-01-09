@@ -1,5 +1,9 @@
 {
   "handlers": {
+    "default": {
+      "type": "set",
+      "handlers": ["slack"]
+    },
     "slack": {
       "type": "pipe",
       "command": "ruby /sensu/slack.rb"
