@@ -1,0 +1,23 @@
+[Unit]
+Description=Sensu host check client
+After=docker.service
+
+[Service]
+TimeoutStartSec=0
+EnvironmentFile=/etc/environment
+ExecStartPre=-/usr/bin/docker kill %p
+ExecStartPre=-/usr/bin/docker rm %p
+ExecStartPre=/usr/bin/docker pull upfluence/%p
+ExecStart=/usr/bin/docker run --rm --name %p \
+  -e SENSU_HOSTNAME=%H -e SENSU_ADDRESS=${COREOS_PRIVATE_IPV4} \
+  upfluence/sensu-host-check-client
+
+ExecStartPost=/usr/bin/etcdctl set /sensu/checks/cpu-check \
+  '{ "command": "ruby check-cpu.rb", "interval":60, "subscribers": ["host_check"] }'
+ExecStartPost=/usr/bin/etcdctl set /sensu/checks/ram-check \
+  '{ "command": "ruby check-ram.rb", "interval":60, "subscribers": ["host_check"] }'
+ExecStartPost=/usr/bin/etcdctl set /sensu/checks/disk-check \
+  '{ "command": "ruby check-disk.rb -L /dev/xvda9", "interval":60, "subscribers": ["host_check"] }'
+
+[X-Fleet]
+Global=true
