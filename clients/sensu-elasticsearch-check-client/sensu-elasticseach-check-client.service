@@ -1,0 +1,13 @@
+[Unit]
+Description=Sensu http check client
+After=docker.service
+
+[Service]
+User=core
+TimeoutStartSec=0
+EnvironmentFile=/etc/environment
+ExecStartPre=-/usr/bin/docker kill %p
+ExecStartPre=-/usr/bin/docker rm %p
+ExecStartPre=-/usr/bin/docker pull upfluence/%p
+ExecStart=/usr/bin/docker run --rm --name %p -e SENSU_HOSTNAME=$(hostname) \
+  -e SENSU_ADDRESS=${COREOS_PRIVATE_IPV4} upfluence/sensu-fleet-client
