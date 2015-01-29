@@ -1,7 +1,8 @@
 FROM ruby:latest
 MAINTAINER Alexis Montagne <alexis.montagne@gmail.com>
 
-RUN curl -sL https://github.com/upfluence/etcdenv/releases/download/v0.0.4/etcdenv-linux-amd64-0.0.4 \
+RUN curl -sL
+https://github.com/upfluence/etcdenv/releases/download/v0.0.5/etcdenv-linux-amd64-0.0.5 \
   > /usr/bin/etcdenv
 RUN chmod +x /usr/bin/etcdenv
 
