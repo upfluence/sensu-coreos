@@ -44,7 +44,10 @@ class DockerContainerMetrics < Sensu::Plugin::Metric::CLI::Graphite
          default: 'unix:///var/run/docker.sock'
 
   def run
-    output [config[:scheme], 'count'].join('.'), Docker::Container.all.count
+    containers = Docker::Container.all(all: 1)
+    output [config[:scheme], 'total'].join('.'), containers.count
+    output [config[:scheme], 'active'].join('.'), containers.map { |c| c.info["Status"] }.select { |s| s =~ /^Up/ }.count
+    output [config[:scheme], 'exited'].join('.'), containers.map { |c| c.info["Status"] }.select { |s| s =~ /^Exited/ }.count
     ok
   end
 end
