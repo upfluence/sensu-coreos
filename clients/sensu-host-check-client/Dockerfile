@@ -14,3 +14,4 @@ ADD checks/disk-usage-metrics.rb /sensu/disk-usage-metrics.rb
 ADD checks/memory-metrics-percent.rb /sensu/memory-metrics-percent.rb
 
 RUN gem install sys-proctable
+RUN gem install docker-api
