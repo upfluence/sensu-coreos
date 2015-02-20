@@ -17,4 +17,4 @@ COPY templates/checks.tmpl /etc/confd/templates/checks.tmpl
 
 ADD run.sh /sensu/run.sh
 
-CMD etcdenv -n $SENSU_NAMESPACE -s http://172.17.42.1:4001 ./run.sh
+CMD ./run.sh
