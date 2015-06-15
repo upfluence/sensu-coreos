@@ -1,9 +1,9 @@
 FROM upfluence/sensu-client:latest
 MAINTAINER Alexis Montagne <alexis.montagne@gmail.com>
 
-RUN curl -sL https://github.com/coreos/fleet/releases/download/v0.9.2/fleet-v0.9.2-linux-amd64.tar.gz \
+RUN curl -sL https://github.com/coreos/fleet/releases/download/v0.10.1/fleet-v0.10.1-linux-amd64.tar.gz \
   > /tmp/fleet.tar.gz && tar --strip-components=1 -C /usr/local/bin -xvf \
-  /tmp/fleet.tar.gz  fleet-v0.9.2-linux-amd64/fleetctl
+  /tmp/fleet.tar.gz  fleet-v0.10.1-linux-amd64/fleetctl
 
 ENV SENSU_NAME fleet_client
 ENV SENSU_SUBSCRIPTIONS fleet
