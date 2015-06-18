@@ -1,4 +1,4 @@
-FROM ruby:latest
+FROM ruby:2.1.6-wheezy
 MAINTAINER Alexis Montagne <alexis.montagne@gmail.com>
 
 RUN curl -sL https://github.com/upfluence/etcdenv/releases/download/v0.2.0/etcdenv-linux-amd64-0.2.0 \
