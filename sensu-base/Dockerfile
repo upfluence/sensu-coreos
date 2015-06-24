@@ -1,5 +1,7 @@
-FROM ruby:2.1.6-slim
+FROM ruby:2.1.6-wheezy
 MAINTAINER Alexis Montagne <alexis.montagne@gmail.com>
+
+RUN apt-get update && apt-get install -y procps
 
 RUN curl -sL https://github.com/upfluence/etcdenv/releases/download/v0.2.0/etcdenv-linux-amd64-0.2.0 \
   > /usr/bin/etcdenv
