@@ -1,3 +1,4 @@
 playground
 **/dist/*
 **/etcdenv
+**/sensu-*-client
