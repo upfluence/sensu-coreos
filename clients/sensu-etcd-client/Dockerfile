@@ -6,6 +6,7 @@ COPY sensu-etcd-client /sensu-etcd-client
 
 ENV SENSU_CLIENT_SUBSCRIPTIONS etcd_check
 ENV SENSU_CLIENT_NAME  etcd-check-client
+ENV ETCD_PEER_URLS http://172.17.42.1:4001,http://172.17.42.1:2379
 
 RUN chmod +x /etcdenv
 RUN chmod +x /sensu-etcd-client
