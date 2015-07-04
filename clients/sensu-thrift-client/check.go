@@ -121,7 +121,7 @@ func main() {
 	t := transport.NewRabbitMQTransport(cfg)
 	client := sensu.NewClient(t, cfg)
 
-	check.Store["thrift_check"] = &check.ExtensionCheck{ThriftCheck}
+	check.Store["sensu-aws-client"] = &check.ExtensionCheck{ThriftCheck}
 
 	client.Start()
 }
