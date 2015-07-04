@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -18,9 +19,9 @@ import (
 )
 
 type ThriftServiceConfiguration struct {
-	Transport       string
-	Protocol        string
-	TransportConfig map[string]string
+	Transport       string            `json:"transport"`
+	Protocol        string            `json:"protocol"`
+	TransportConfig map[string]string `json:"transport_config"`
 }
 
 func checkService(config ThriftServiceConfiguration) bool {
@@ -31,6 +32,10 @@ func checkService(config ThriftServiceConfiguration) bool {
 	} else {
 		amqpURL = os.Getenv("RABBITMQ_URL")
 	}
+
+	log.Println(fmt.Sprintf("URL: %s", amqpURL))
+	log.Println(fmt.Sprintf("exchange: %s", config.TransportConfig["exchange"]))
+	log.Println(fmt.Sprintf("routing: %s", config.TransportConfig["routing"]))
 
 	trans, _ := amqp_thrift.NewTAMQPClient(
 		amqpURL,
@@ -55,7 +60,11 @@ func checkService(config ThriftServiceConfiguration) bool {
 	c := make(chan base_service.Status, 1)
 
 	go func() {
-		s, _ := client.GetStatus()
+		s, err := client.GetStatus()
+
+		if err != nil {
+			log.Println(err.Error())
+		}
 
 		c <- s
 	}()
