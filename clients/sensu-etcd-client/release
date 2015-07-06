@@ -5,5 +5,5 @@ curl -sL https://github.com/upfluence/etcdenv/releases/download/v0.2.0/etcdenv-l
 
 GOOS=linux CGO_ENABLED=0 GOARCH=amd64 go build -o sensu-etcd-client
 
-docker build -t upfluence/sensu-etcd-client:latest .
+docker build --no-cache -t upfluence/sensu-etcd-client:latest .
 docker push upfluence/sensu-etcd-client

@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coreos/etcd/etcdserver/stats"
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/upfluence/sensu-client-go/sensu"
 	"github.com/upfluence/sensu-client-go/sensu/check"
@@ -17,7 +16,33 @@ import (
 	"github.com/upfluence/sensu-client-go/sensu/transport"
 )
 
-func fetchClusterStats(peers []string) (string, *stats.LeaderStats, error) {
+// Huge copy-pasty from etcdserver/stats, sorry about that :(
+type LatencyStats struct {
+	Current           float64 `json:"current"`
+	Average           float64 `json:"average"`
+	averageSquare     float64
+	StandardDeviation float64 `json:"standardDeviation"`
+	Minimum           float64 `json:"minimum"`
+	Maximum           float64 `json:"maximum"`
+}
+
+// CountsStats encapsulates raft statistics.
+type CountsStats struct {
+	Fail    uint64 `json:"fail"`
+	Success uint64 `json:"success"`
+}
+
+type FollowerStats struct {
+	Latency LatencyStats `json:"Latency"`
+	Counts  CountsStats  `json:"counts"`
+}
+
+type LeaderStats struct {
+	Leader    string                    `json:"leader"`
+	Followers map[string]*FollowerStats `json:"followers"`
+}
+
+func fetchClusterStats(peers []string) (string, *LeaderStats, error) {
 	client := &http.Client{}
 	for _, peer := range peers {
 		r, err := client.Get(peer + "/v2/stats/leader")
@@ -31,7 +56,7 @@ func fetchClusterStats(peers []string) (string, *stats.LeaderStats, error) {
 			continue
 		}
 
-		ls := &stats.LeaderStats{}
+		ls := &LeaderStats{}
 		d := json.NewDecoder(r.Body)
 		err = d.Decode(ls)
 		if err != nil {
@@ -103,7 +128,7 @@ func EtcdCheck() check.ExtensionCheckResult {
 	if len(unhealthy_nodes) > 0 {
 		handler.Error(
 			fmt.Sprintf("Members %s are unhealthy",
-				unhealthy_nodes))
+				strings.Join(unhealthy_nodes, ",")))
 	}
 
 	return handler.Ok("All members are healthy")
