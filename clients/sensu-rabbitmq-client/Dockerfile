@@ -12,4 +12,4 @@ RUN chmod +x /sensu-rabbitmq-client
 
 ENV NAMESPACE /environments/sensu,/environments/global
 
-CMD /etcdenv -n ${NAMESPACE} -s http://172.17.42.1:4001 /sensu-etcd-client
+CMD /etcdenv -n ${NAMESPACE} -s http://172.17.42.1:4001 /sensu-rabbitmq-client
