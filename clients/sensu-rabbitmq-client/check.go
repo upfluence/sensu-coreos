@@ -17,8 +17,9 @@ const (
 	MEMORY_WARNING = 1024
 	MEMORY_ERROR   = 1280
 
-	DISK_WARNING = 5120
-	DISK_ERROR   = 1024
+	DISK_WARNING          = 5120
+	DISK_ERROR            = 1024
+	CLUSTER_SIZE_EXPECTED = 2
 )
 
 func nodesInfo() ([]rabbithole.NodeInfo, error) {
@@ -43,6 +44,42 @@ type Check struct {
 	Comp    func(int, int) bool
 	Warning int
 	Error   int
+}
+
+func ClusterSizeCheck() check.ExtensionCheckResult {
+	nodes, err := nodesInfo()
+
+	if err != nil {
+		return handler.Error(fmt.Sprintf("rabbitmq: %s", err.Error()))
+	}
+
+	expected := CLUSTER_SIZE_EXPECTED
+
+	if os.Getenv("CLUSTER_SIZE_EXPECTED") != "" {
+		e, err := strconv.Atoi(
+			os.Getenv("CLUSTER_SIZE_EXPECTED"),
+		)
+
+		if err != nil {
+			return handler.Error(fmt.Sprintf("cluster-size error: %s", err.Error()))
+		}
+
+		expected = e
+	}
+
+	runningNodes := 0
+
+	for _, node := range nodes {
+		if node.IsRunning {
+			runningNodes++
+		}
+	}
+
+	if runningNodes < expected {
+		return handler.Error(fmt.Sprintf("Cluster too small: %d", runningNodes))
+	}
+
+	return handler.Ok(fmt.Sprintf("Cluster ok: %d", runningNodes))
 }
 
 func (c *Check) Metric() check.ExtensionCheckResult {
@@ -127,11 +164,11 @@ func buildMessage(errorNodes, warningNodes map[string]int) string {
 	messages := []string{}
 
 	for k, v := range errorNodes {
-		messages = append(messages, fmt.Sprintf("%s: %sMB", k, v))
+		messages = append(messages, fmt.Sprintf("%s: %dMB", k, v))
 	}
 
 	for k, v := range warningNodes {
-		messages = append(messages, fmt.Sprintf("%s: %sMB", k, v))
+		messages = append(messages, fmt.Sprintf("%s: %dMB", k, v))
 	}
 
 	return strings.Join(messages, ", ")
@@ -145,7 +182,7 @@ func main() {
 
 	memCheck := &Check{
 		"memory",
-		func(n rabbithole.NodeInfo) int { return n.MemUsed },
+		func(n rabbithole.NodeInfo) int { return n.MemUsed / (1024 * 1024) },
 		func(t1, t2 int) bool { return t1 > t2 },
 		MEMORY_WARNING,
 		MEMORY_ERROR,
@@ -156,7 +193,7 @@ func main() {
 
 	diskCheck := &Check{
 		"disk",
-		func(n rabbithole.NodeInfo) int { return n.DiskFree },
+		func(n rabbithole.NodeInfo) int { return n.DiskFree / (1024 * 1024) },
 		func(t1, t2 int) bool { return t1 < t2 },
 		DISK_WARNING,
 		DISK_ERROR,
@@ -164,6 +201,10 @@ func main() {
 
 	check.Store["sensu-disk-check"] = &check.ExtensionCheck{diskCheck.Check}
 	check.Store["sensu-disk-metric"] = &check.ExtensionCheck{diskCheck.Metric}
+
+	check.Store["rabbitmq-cluster-size"] = &check.ExtensionCheck{
+		ClusterSizeCheck,
+	}
 
 	client.Start()
 }
