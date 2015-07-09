@@ -61,7 +61,7 @@ func checkService(config ThriftServiceConfiguration) bool {
 
 	go func() {
 		s, err := client.GetStatus()
-
+		defer trans.Close()
 		if err != nil {
 			log.Println(err.Error())
 		}
@@ -110,7 +110,8 @@ func ThriftCheck() check.ExtensionCheckResult {
 		}
 
 		if !checkService(config) {
-			failedServices = append(failedServices, node.Key)
+			parts := strings.Split(node.Key, "/")
+			failedServices = append(failedServices, parts[len(parts)-1])
 		}
 	}
 

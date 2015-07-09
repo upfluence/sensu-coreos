@@ -1,4 +1,7 @@
 playground
 **/dist/*
 **/etcdenv
-**/sensu-*-client
+!**/sensu-*-client/*.{go,rb}
+!**/sensu-*-client/release
+!**/sensu-*-client/Dockerfile
+clients/*/sensu-*-client
