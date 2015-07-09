@@ -92,6 +92,10 @@ func (c *Check) Metric() check.ExtensionCheckResult {
 	}
 
 	for _, node := range nodes {
+		if !node.IsRunning {
+			continue
+		}
+
 		metric.AddPoint(handler.Point{
 			fmt.Sprintf("rabbitmq.%s.%s", node.Name, c.Type),
 			float64(c.Method(node)),
@@ -140,6 +144,10 @@ func (c *Check) Check() check.ExtensionCheckResult {
 	nodeWarning := make(map[string]int)
 
 	for _, node := range nodes {
+		if !node.IsRunning {
+			continue
+		}
+
 		if c.Comp(c.Method(node), error) {
 			nodeError[node.Name] = c.Method(node)
 			continue
