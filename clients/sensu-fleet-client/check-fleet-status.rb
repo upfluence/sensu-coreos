@@ -11,7 +11,7 @@ class FleetCheck < Sensu::Plugin::Check::CLI
          default: ENV['ETCD_IP'] || 'http://172.17.42.1:4001'
 
   def run
-    cmd = `fleetctl --endpoint #{config[:etcd_ip]} list-units -fields "sub,unit" -no-legend | grep failed`
+    cmd = `fleetctl --endpoint #{config[:etcd_ip]} list-units -fields "sub,unit" -no-legend | grep failed\|dead`
 
     failed_units = cmd.split("\n").map { |line| line.split("\t").last }
 
