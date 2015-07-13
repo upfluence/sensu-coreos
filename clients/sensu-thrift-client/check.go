@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coreos/go-etcd/etcd"
@@ -18,6 +20,11 @@ import (
 	"github.com/upfluence/upfluence-if/dist/base_service"
 )
 
+const (
+	defaultTimeout = 15
+	defaultAMQPURL = "amqp://guest:guest@localhost:5672/%2f"
+)
+
 type ThriftServiceConfiguration struct {
 	Transport       string            `json:"transport"`
 	Protocol        string            `json:"protocol"`
@@ -25,11 +32,16 @@ type ThriftServiceConfiguration struct {
 }
 
 func checkService(config ThriftServiceConfiguration) bool {
-	var amqpURL string
+	amqpURL := defaultAMQPURL
+	timeout := defaultTimeout
 
-	if os.Getenv("RABBITMQ_URL") == "" {
-		amqpURL = "amqp://guest:guest@localhost:5672/%2f"
-	} else {
+	if os.Getenv("TIMEOUT") != "" {
+		if t, err := strconv.Atoi(os.Getenv("TIMEOUT")); err == nil {
+			timeout = t
+		}
+	}
+
+	if os.Getenv("RABBITMQ_URL") != "" {
 		amqpURL = os.Getenv("RABBITMQ_URL")
 	}
 
@@ -76,7 +88,7 @@ func checkService(config ThriftServiceConfiguration) bool {
 		} else {
 			return false
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(time.Duration(timeout) * time.Second):
 		return false
 	}
 }
@@ -99,6 +111,8 @@ func ThriftCheck() check.ExtensionCheckResult {
 	}
 
 	failedServices := []string{}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 
 	for _, node := range resp.Node.Nodes {
 		var config ThriftServiceConfiguration
@@ -109,11 +123,20 @@ func ThriftCheck() check.ExtensionCheckResult {
 			return handler.Error(fmt.Sprintf("json: %s", err.Error()))
 		}
 
-		if !checkService(config) {
-			parts := strings.Split(node.Key, "/")
-			failedServices = append(failedServices, parts[len(parts)-1])
-		}
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			if !checkService(config) {
+				parts := strings.Split(node.Key, "/")
+				mu.Lock()
+				defer mu.Unlock()
+				failedServices = append(failedServices, parts[len(parts)-1])
+			}
+		}()
 	}
+
+	wg.Wait()
 
 	if len(failedServices) == 0 {
 		return handler.Ok("Every thrift services are alive")
