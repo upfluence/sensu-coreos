@@ -44,6 +44,7 @@ func checkService(config ThriftServiceConfiguration) bool {
 	)
 
 	trans.Open()
+	defer trans.Close()
 
 	var protocol thrift.TProtocolFactory
 	protocol = thrift.NewTBinaryProtocolFactoryDefault()
@@ -61,7 +62,6 @@ func checkService(config ThriftServiceConfiguration) bool {
 
 	go func() {
 		s, err := client.GetStatus()
-		defer trans.Close()
 		if err != nil {
 			log.Println(err.Error())
 		}
