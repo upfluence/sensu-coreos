@@ -10,10 +10,19 @@ class FleetCheck < Sensu::Plugin::Check::CLI
          description: 'ETCD peer ip',
          default: ENV['ETCD_IP'] || 'http://172.17.42.1:4001'
 
+  option :blacklist_pattern,
+         short: '-b BLACKLIST_PATTERN',
+         long: '--blacklist BLACKLIST_PATTERN',
+         description: 'BLACKLIST_PATTERN',
+         default: ENV['BLACKLIST_PATTERN']
+
   def run
+    blacklist_regexp = Regexp.new config[:blacklist_pattern] || '^$'
     cmd = `fleetctl --endpoint #{config[:etcd_ip]} list-units -fields "sub,unit" -no-legend | grep failed\|dead`
 
-    failed_units = cmd.split("\n").map { |line| line.split("\t").last }
+    failed_units = cmd.split("\n").map do |line|
+      line.split("\t").last
+    end.reject { |unit| blacklist_pattern =~ unit }
 
     if failed_units.any?
       critical "Failed units: #{failed_units.join(',')}"
@@ -23,7 +32,9 @@ class FleetCheck < Sensu::Plugin::Check::CLI
 
     warning_units = cmd.split("\n").map { |l| l.split("\t") }.reject do |l|
       l.last == "-"
-    end.select { |l| l[-2] != l[-1] }.map(&:first)
+    end.select { |l| l[-2] != l[-1] }.map(&:first).reject do |unit|
+      blacklist_pattern =~ unit
+    end
 
     if warning_units.any?
       warning "Units in a wrong state: #{warning_units.join(',')}"
