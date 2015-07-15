@@ -166,7 +166,7 @@ func HeapSizeCheck() check.ExtensionCheckResult {
 	for _, n := range stats.Nodes {
 		result = append(
 			result,
-			fmt.Sprintf("%s: %d%", n.Name, n.JVM.Mem.HeapUsedPercent),
+			fmt.Sprintf("%s: %d%%", n.Name, n.JVM.Mem.HeapUsedPercent),
 		)
 
 		if n.JVM.Mem.HeapUsedPercent > int64(errorHeapSize) {

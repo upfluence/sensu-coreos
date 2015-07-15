@@ -125,15 +125,15 @@ func ThriftCheck() check.ExtensionCheckResult {
 
 		wg.Add(1)
 
-		go func() {
+		go func(config ThriftServiceConfiguration, node *etcd.Node) {
 			defer wg.Done()
 			if !checkService(config) {
-				parts := strings.Split(node.Key, "/")
 				mu.Lock()
 				defer mu.Unlock()
+				parts := strings.Split(node.Key, "/")
 				failedServices = append(failedServices, parts[len(parts)-1])
 			}
-		}()
+		}(config, node)
 	}
 
 	wg.Wait()
