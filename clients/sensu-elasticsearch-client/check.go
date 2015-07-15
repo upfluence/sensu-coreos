@@ -95,6 +95,45 @@ func ClusterSizeCheck() check.ExtensionCheckResult {
 	}
 }
 
+func MemoryMetric() check.ExtensionCheckResult {
+	metric := handler.Metric{}
+
+	c, err := elasticsearchConn()
+
+	if err != nil {
+		return metric.Render()
+	}
+
+	stats, err := c.NodesStats()
+
+	if err != nil {
+		return metric.Render()
+	}
+
+	for _, n := range stats.Nodes {
+		metric.AddPoint(
+			handler.Point{
+				fmt.Sprintf("elasticsearch.%s.heap_size", n.Name),
+				float64(n.JVM.Mem.HeapUsedInBytes / (1024 * 1024)),
+			},
+		)
+		metric.AddPoint(
+			handler.Point{
+				fmt.Sprintf("elasticsearch.%s.swap_size", n.Name),
+				float64(n.OS.Swap.Used / (1024 * 1024)),
+			},
+		)
+		metric.AddPoint(
+			handler.Point{
+				fmt.Sprintf("elasticsearch.%s.mem_size", n.Name),
+				float64(n.OS.Mem.Used / (1024 * 1024)),
+			},
+		)
+	}
+
+	return metric.Render()
+}
+
 func HeapSizeCheck() check.ExtensionCheckResult {
 	warningHeapSize := WARNING_HEAP_SIZE
 	errorHeapSize := ERROR_HEAP_SIZE
