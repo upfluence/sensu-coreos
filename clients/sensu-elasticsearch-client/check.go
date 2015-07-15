@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	CLUSTER_SIZE_EXPECTED = 3
+	EXPECTED_CLUSTER_SIZE = 3
 	WARNING_HEAP_SIZE     = 60
 	ERROR_HEAP_SIZE       = 80
 )
@@ -59,10 +59,10 @@ func ClusterHealthCheck() check.ExtensionCheckResult {
 }
 
 func ClusterSizeCheck() check.ExtensionCheckResult {
-	clusterSizeExpected := CLUSTER_SIZE_EXPECTED
+	expectedClusterSize := EXPECTED_CLUSTER_SIZE
 
-	if v := os.Getenv("CLUSTER_SIZE_EXPECTED"); v != "" {
-		clusterSizeExpected, _ = strconv.Atoi(v)
+	if v := os.Getenv("EXPECTED_CLUSTER_SIZE"); v != "" {
+		expectedClusterSize, _ = strconv.Atoi(v)
 	}
 
 	c, err := elasticsearchConn()
@@ -77,11 +77,11 @@ func ClusterSizeCheck() check.ExtensionCheckResult {
 		handler.Error(fmt.Sprintf("Stats check: %s", err.Error()))
 	}
 
-	if len(stats.Nodes) < clusterSizeExpected {
+	if len(stats.Nodes) < expectedClusterSize {
 		return handler.Error(
 			fmt.Sprintf("The cluster is too small with %d nodes", len(stats.Nodes)),
 		)
-	} else if len(stats.Nodes) > clusterSizeExpected {
+	} else if len(stats.Nodes) > expectedClusterSize {
 		return handler.Warning(
 			fmt.Sprintf("The cluster is too big with %d nodes", len(stats.Nodes)),
 		)
@@ -201,6 +201,10 @@ func main() {
 
 	check.Store["elasticsearch-heap-size-check"] = &check.ExtensionCheck{
 		HeapSizeCheck,
+	}
+
+	check.Store["elasticsearch-memory-metric"] = &check.ExtensionCheck{
+		MemoryMetric,
 	}
 
 	client.Start()
