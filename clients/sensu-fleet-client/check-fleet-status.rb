@@ -18,11 +18,11 @@ class FleetCheck < Sensu::Plugin::Check::CLI
 
   def run
     blacklist_regexp = Regexp.new config[:blacklist_pattern] || '^$'
-    cmd = `fleetctl --endpoint #{config[:etcd_ip]} list-units -fields "sub,unit" -no-legend | grep failed\|dead`
+    cmd = `fleetctl --endpoint #{config[:etcd_ip]} list-units -fields "sub,unit" -no-legend | grep "failed\|dead"`
 
     failed_units = cmd.split("\n").map do |line|
       line.split("\t").last
-    end.reject { |unit| blacklist_pattern =~ unit }
+    end.reject { |unit| config[:blacklist_pattern] =~ unit }
 
     if failed_units.any?
       critical "Failed units: #{failed_units.join(',')}"
