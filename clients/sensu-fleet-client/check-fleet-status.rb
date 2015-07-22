@@ -33,7 +33,7 @@ class FleetCheck < Sensu::Plugin::Check::CLI
     warning_units = cmd.split("\n").map { |l| l.split("\t") }.reject do |l|
       l.last == "-"
     end.select { |l| l[-2] != l[-1] }.map(&:first).reject do |unit|
-      blacklist_pattern =~ unit
+      config[:blacklist_pattern] =~ unit
     end
 
     if warning_units.any?
