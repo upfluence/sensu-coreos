@@ -19,8 +19,8 @@ const (
 	KB float64 = 1 << (10 * iota)
 	MB
 	GB
-	LOAD_AVERAGE_WARNING = 1.0
-	LOAD_AVERAGE_ERROR   = 2.0
+	LOAD_AVERAGE_WARNING = 2.0
+	LOAD_AVERAGE_ERROR   = 5.0
 	MEM_ERROR            = 3.9 * GB
 	MEM_WARNING          = 3.7 * GB
 	SWAP_ERROR           = 1.9 * GB
@@ -105,7 +105,7 @@ var (
 				return 0.0, err
 			}
 
-			return float64(v.Used), nil
+			return float64(v.ActualUsed), nil
 		},
 	}
 
