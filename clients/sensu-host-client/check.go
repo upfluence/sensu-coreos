@@ -80,7 +80,7 @@ func (c *Check) Check() check.ExtensionCheckResult {
 		value = v
 	}
 
-	message := fmt.Sprintf("%s: %f", c.Name, c.displayValue(value))
+	message := fmt.Sprintf("%s: %s", c.Name, c.displayValue(value))
 
 	if value > c.errorThreshold {
 		return handler.Error(message)
