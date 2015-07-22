@@ -36,6 +36,20 @@ type Check struct {
 	errorThreshold   float64
 	warningThreshold float64
 	fetchValue       func() (float64, error)
+	displayValue     func(float64) string
+}
+
+func displayBytes(b float64) string {
+	switch {
+	case b >= GB:
+		return fmt.Sprintf("%.2fGB", b/GB)
+	case b >= MB:
+		return fmt.Sprintf("%.2fMB", b/MB)
+	case b >= KB:
+		return fmt.Sprintf("%.2fKB", b/KB)
+	}
+
+	return fmt.Sprintf("%.2fB", b)
 }
 
 func (c *Check) Metric() check.ExtensionCheckResult {
@@ -66,7 +80,7 @@ func (c *Check) Check() check.ExtensionCheckResult {
 		value = v
 	}
 
-	message := fmt.Sprintf("%s: %f", c.Name, value)
+	message := fmt.Sprintf("%s: %f", c.Name, c.displayValue(value))
 
 	if value > c.errorThreshold {
 		return handler.Error(message)
@@ -83,6 +97,7 @@ var (
 		Name:             "mem",
 		errorThreshold:   MEM_ERROR,
 		warningThreshold: MEM_WARNING,
+		displayValue:     displayBytes,
 		fetchValue: func() (float64, error) {
 			v, err := sgr.GetMem()
 
@@ -98,6 +113,7 @@ var (
 		Name:             "Swap",
 		errorThreshold:   SWAP_ERROR,
 		warningThreshold: SWAP_WARNING,
+		displayValue:     displayBytes,
 		fetchValue: func() (float64, error) {
 			v, err := sgr.GetSwap()
 
@@ -113,6 +129,7 @@ var (
 		Name:             "load_average",
 		errorThreshold:   LOAD_AVERAGE_ERROR,
 		warningThreshold: LOAD_AVERAGE_WARNING,
+		displayValue:     func(b float64) string { return fmt.Sprintf("%.2f", b) },
 		fetchValue: func() (float64, error) {
 			v, err := sgr.GetLoadAverage()
 
@@ -120,7 +137,7 @@ var (
 				return 0.0, err
 			}
 
-			return v.One, nil
+			return v.Five, nil
 		},
 	}
 
@@ -128,6 +145,7 @@ var (
 		Name:             "disk",
 		errorThreshold:   DISK_ERROR,
 		warningThreshold: DISK_WARNING,
+		displayValue:     displayBytes,
 		fetchValue: func() (float64, error) {
 			v, err := sgr.GetFileSystemUsage("/")
 
@@ -143,6 +161,7 @@ var (
 		Name:             "cpu",
 		errorThreshold:   0.0,
 		warningThreshold: 0.0,
+		displayValue:     displayBytes,
 		fetchValue: func() (float64, error) {
 			responseChan, _ := sgr.CollectCpuStats(5 * time.Second)
 
@@ -153,9 +172,10 @@ var (
 	}
 
 	dockerVSZCheck = &Check{
-		Name:             "cpu",
+		Name:             "docker_vsz",
 		errorThreshold:   DOCKER_VSZ_ERROR,
 		warningThreshold: DOCKER_VSZ_ERROR,
+		displayValue:     displayBytes,
 		fetchValue: func() (float64, error) {
 			f, err := ioutil.ReadFile("/var/run/docker.pid")
 
