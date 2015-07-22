@@ -4,4 +4,5 @@ playground
 !**/sensu-*-client/*.{go,rb}
 !**/sensu-*-client/release
 !**/sensu-*-client/Dockerfile
+!**/sensu-host-client/dist/sensu-host-client
 clients/*/sensu-*-client

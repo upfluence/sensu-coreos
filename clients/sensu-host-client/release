@@ -1,0 +1,5 @@
+#!/bin/sh
+
+mkdir dist
+
+GOOS=linux CGO_ENABLED=0 GOARCH=amd64 go build -o dist/sensu-host-client
