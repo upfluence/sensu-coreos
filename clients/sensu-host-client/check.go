@@ -216,7 +216,7 @@ func main() {
 	}
 	check.Store["host-mem-metric"] = &check.ExtensionCheck{memCheck.Metric}
 	check.Store["host-disk-metric"] = &check.ExtensionCheck{diskCheck.Metric}
-	check.Store["host-cpu-metric"] = &check.ExtensionCheck{diskCheck.Metric}
+	check.Store["host-cpu-metric"] = &check.ExtensionCheck{cpuCheck.Metric}
 	check.Store["host-load_average-metric"] = &check.ExtensionCheck{
 		loadAverageCheck.Metric,
 	}
