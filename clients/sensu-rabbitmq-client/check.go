@@ -19,7 +19,7 @@ const (
 
 	DISK_WARNING          = 5120
 	DISK_ERROR            = 1024
-	CLUSTER_SIZE_EXPECTED = 2
+	CLUSTER_SIZE_EXPECTED = 3
 )
 
 func nodesInfo() ([]rabbithole.NodeInfo, error) {
