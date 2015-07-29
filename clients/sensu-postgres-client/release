@@ -1,0 +1,9 @@
+#!/bin/sh
+
+curl -sL https://github.com/upfluence/etcdenv/releases/download/v0.2.1/etcdenv-linux-amd64-0.2.1 \
+ > etcdenv
+
+GOOS=linux CGO_ENABLED=0 GOARCH=amd64 go build -o sensu-postgres-client
+
+docker build --no-cache -t upfluence/sensu-postgres-client:latest .
+docker push upfluence/sensu-postgres-client
