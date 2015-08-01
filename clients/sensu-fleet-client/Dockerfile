@@ -1,11 +1,15 @@
-FROM upfluence/sensu-client:latest
+FROM busybox:latest
 MAINTAINER Alexis Montagne <alexis.montagne@gmail.com>
 
-RUN curl -sL https://github.com/coreos/fleet/releases/download/v0.10.2/fleet-v0.10.2-linux-amd64.tar.gz \
-  > /tmp/fleet.tar.gz && tar --strip-components=1 -C /usr/local/bin -xvf \
-  /tmp/fleet.tar.gz  fleet-v0.10.2-linux-amd64/fleetctl
+COPY etcdenv /etcdenv
+COPY sensu-fleet-client /sensu-fleet-client
 
-ENV SENSU_NAME fleet_client
-ENV SENSU_SUBSCRIPTIONS fleet
+ENV SENSU_CLIENT_SUBSCRIPTIONS fleet_check
+ENV SENSU_CLIENT_NAME  sensu-fleet-client
 
-COPY check-fleet-status.rb /sensu/check-fleet-status.rb
+RUN chmod +x /etcdenv
+RUN chmod +x /sensu-fleet-client
+
+ENV NAMESPACE /environments/sensu,/environments/global
+
+CMD /etcdenv -n ${NAMESPACE} -s http://172.17.42.1:4001 /sensu-fleet-client
