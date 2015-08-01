@@ -63,7 +63,7 @@ func (c *Check) Metric() check.ExtensionCheckResult {
 	}
 
 	metric.AddPoint(
-		handler.Point{
+		&handler.Point{
 			fmt.Sprintf("%s.%s", os.Getenv("SENSU_HOSTNAME"), c.Name),
 			value,
 		},

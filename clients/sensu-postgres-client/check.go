@@ -86,20 +86,26 @@ func ConnectonMetric() check.ExtensionCheckResult {
 	}
 
 	for db, val := range r {
-		metric.AddPoint(handler.Point{
-			fmt.Sprintf("postgres.%s.active", db),
-			float64(val.Active),
-		})
+		metric.AddPoint(
+			&handler.Point{
+				fmt.Sprintf("postgres.%s.active", db),
+				float64(val.Active),
+			},
+		)
 
-		metric.AddPoint(handler.Point{
-			fmt.Sprintf("postgres.%s.idle", db),
-			float64(val.Idle),
-		})
+		metric.AddPoint(
+			&handler.Point{
+				fmt.Sprintf("postgres.%s.idle", db),
+				float64(val.Idle),
+			},
+		)
 
-		metric.AddPoint(handler.Point{
-			fmt.Sprintf("postgres.%s.total", db),
-			float64(val.Active + val.Idle),
-		})
+		metric.AddPoint(
+			&handler.Point{
+				fmt.Sprintf("postgres.%s.total", db),
+				float64(val.Active + val.Idle),
+			},
+		)
 	}
 
 	return metric.Render()

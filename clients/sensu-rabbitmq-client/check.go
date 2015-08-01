@@ -96,10 +96,12 @@ func (c *Check) Metric() check.ExtensionCheckResult {
 			continue
 		}
 
-		metric.AddPoint(handler.Point{
-			fmt.Sprintf("rabbitmq.%s.%s", node.Name, c.Type),
-			float64(c.Method(node)),
-		})
+		metric.AddPoint(
+			&handler.Point{
+				fmt.Sprintf("rabbitmq.%s.%s", node.Name, c.Type),
+				float64(c.Method(node)),
+			},
+		)
 	}
 
 	return metric.Render()
