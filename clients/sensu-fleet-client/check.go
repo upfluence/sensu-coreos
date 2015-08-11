@@ -3,15 +3,15 @@ package main
 import (
 	"fmt"
 	"log"
-	"net"
-	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
+	etcdInternal "github.com/coreos/fleet/Godeps/_workspace/src/github.com/coreos/etcd/client"
 	"github.com/coreos/fleet/client"
 	"github.com/coreos/fleet/job"
+	"github.com/coreos/fleet/registry"
 	"github.com/coreos/fleet/schema"
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/upfluence/sensu-client-go/sensu"
@@ -23,7 +23,7 @@ import (
 
 const (
 	DefaultNamespace                   string  = "machines"
-	DefaultBlacklist                   string  = ".*-backup\\.service"
+	DefaultBlacklist                   string  = ".+-backup\\..+"
 	DefaultClusterSizeWarningThreshold float64 = 7.0
 	DefaultClusterSizeErrorThreshold   float64 = 6.0
 )
@@ -37,36 +37,22 @@ func EtcdNamespace() string {
 }
 
 func NewFleetClient() (client.API, error) {
-	ep, _ := url.Parse(os.Getenv("FLEET_URL"))
-	dialUnix := ep.Scheme == "unix" || ep.Scheme == "file"
-	dialFunc := net.Dial
-
-	if dialUnix {
-		ep.Host = "domain-sock"
-		ep.Scheme = "http"
-
-		sockPath := ep.Path
-
-		ep.Path = ""
-
-		dialFunc = func(string, string) (net.Conn, error) {
-			return net.Dial("unix", sockPath)
-		}
-	}
-
-	tr := &http.Transport{
-		Dial: dialFunc,
-	}
-
-	cl := http.Client{Transport: tr}
-
-	httpClient, err := client.NewHTTPClient(&cl, *ep)
+	etcdClient, err := etcdInternal.New(
+		etcdInternal.Config{Endpoints: []string{os.Getenv("ETCD_URL")}},
+	)
 
 	if err != nil {
 		return nil, err
-	} else {
-		return httpClient, nil
 	}
+
+	kAPI := etcdInternal.NewKeysAPI(etcdClient)
+	reg := registry.NewEtcdRegistry(
+		kAPI,
+		registry.DefaultKeyPrefix,
+		5*time.Second,
+	)
+
+	return &client.RegistryClient{Registry: reg}, nil
 }
 
 func NewEtcdClient() *etcd.Client {
@@ -155,7 +141,7 @@ func UnitsCheck() check.ExtensionCheckResult {
 	wrongStates := []string{}
 
 	for _, u := range units {
-		if u.DesiredState != u.CurrentState {
+		if u.DesiredState != u.CurrentState || u.DesiredState == "inactive" {
 			ju := job.Unit{Unit: *schema.MapSchemaUnitOptionsToUnitFile(u.Options)}
 
 			if !ju.IsGlobal() {
@@ -173,6 +159,61 @@ func UnitsCheck() check.ExtensionCheckResult {
 				strings.Join(wrongStates, ","),
 			),
 		)
+	}
+}
+
+func MachineCheck() check.ExtensionCheckResult {
+	etcdClient := NewEtcdClient()
+
+	fleetClient, err := NewFleetClient()
+	if err != nil {
+		return handler.Error(err.Error())
+	}
+
+	machines, err := fleetClient.Machines()
+	if err != nil {
+		return handler.Error(err.Error())
+	}
+
+	machineIDs := []string{}
+	for _, m := range machines {
+		machineIDs = append(machineIDs, m.ID)
+	}
+
+	r, err := etcdClient.Get("/machines", false, false)
+	if err != nil {
+		return handler.Error(err.Error())
+	}
+
+	missingIDs := []string{}
+
+	for _, n := range r.Node.Nodes {
+		keySlices := strings.Split(n.Key, "/")
+		id := keySlices[len(keySlices)-1]
+
+		for _, mid := range machineIDs {
+			if id == mid {
+				continue
+			}
+		}
+
+		h, err := etcdClient.Get(
+			fmt.Sprintf("/machines/%s/hostname", id),
+			false,
+			false,
+		)
+
+		if err == nil {
+			missingIDs = append(missingIDs, h.Node.Value)
+		}
+	}
+
+	if len(missingIDs) > 0 {
+		return handler.Error(
+			fmt.Sprintf("Misssing nodes: %s", strings.Join(missingIDs, ",")),
+		)
+	} else {
+		return handler.Ok("Every nodes are up and running")
 	}
 }
 
@@ -220,7 +261,7 @@ func UnitsStatesCheck() check.ExtensionCheckResult {
 	if len(wrongStates) == 0 {
 		return handler.Ok("Every units are up and running")
 	} else {
-		return handler.Warning(
+		return handler.Error(
 			fmt.Sprintf(
 				"Failed units: %s",
 				strings.Join(wrongStates, ","),
@@ -281,7 +322,7 @@ func main() {
 
 	check.Store["fleet-units-metrics"] = &check.ExtensionCheck{UnitsMetric}
 	check.Store["fleet-machines-metrics"] = &check.ExtensionCheck{MachinesMetric}
-
+	check.Store["fleet-machines-check"] = &check.ExtensionCheck{MachineCheck}
 	check.Store["fleet-unit-states-checks"] = &check.ExtensionCheck{
 		UnitsStatesCheck,
 	}
@@ -299,7 +340,7 @@ func main() {
 		MetricName: "fleet.cluster_size",
 		Value:      ClusterSize,
 		CheckMessage: func(f float64) string {
-			return fmt.Sprintf("The cluster size is %f.0d", f)
+			return fmt.Sprintf("The cluster size is %.0f", f)
 		},
 		Comp: func(x, y float64) bool { return x > y },
 	}
