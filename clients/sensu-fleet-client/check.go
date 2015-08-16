@@ -191,10 +191,15 @@ func MachineCheck() check.ExtensionCheckResult {
 		keySlices := strings.Split(n.Key, "/")
 		id := keySlices[len(keySlices)-1]
 
+		found := false
 		for _, mid := range machineIDs {
 			if id == mid {
-				continue
+				found = true
 			}
+		}
+
+		if found {
+			continue
 		}
 
 		h, err := etcdClient.Get(
