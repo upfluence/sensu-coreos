@@ -106,7 +106,9 @@ func AWSCheck() check.ExtensionCheckResult {
 
 	for _, status := range r.InstanceStatus {
 		log.Println(status.InstanceId)
-		if status.SystemStatus.Status != "ok" || status.InstanceStatus.Status != "ok" {
+		if status.InstanceState.Code == 16 &&
+			(status.SystemStatus.Status != "ok" ||
+				status.InstanceStatus.Status != "ok") {
 			failedInstances = append(failedInstances, status.InstanceId)
 		}
 	}
