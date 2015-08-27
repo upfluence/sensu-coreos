@@ -153,7 +153,7 @@ func UnitsCheck() check.ExtensionCheckResult {
 	if len(wrongStates) == 0 {
 		return handler.Ok("Every untis are in their desired states")
 	} else {
-		return handler.Warning(
+		return handler.Error(
 			fmt.Sprintf(
 				"Units in an incoherent state: %s",
 				strings.Join(wrongStates, ","),
