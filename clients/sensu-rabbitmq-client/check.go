@@ -280,9 +280,9 @@ func main() {
 		MEMORY_ERROR,
 	}
 
-	check.Store["sensu-memory-check"] = &check.ExtensionCheck{memCheck.Check}
-	check.Store["sensu-memory-restart-check"] = &check.ExtensionCheck{memCheck.RestartCheck}
-	check.Store["sensu-memory-metric"] = &check.ExtensionCheck{memCheck.Metric}
+	check.Store["rabbitmq-memory-check"] = &check.ExtensionCheck{memCheck.Check}
+	check.Store["rabbitmq-memory-restart-check"] = &check.ExtensionCheck{memCheck.RestartCheck}
+	check.Store["rabbitmq-memory-metric"] = &check.ExtensionCheck{memCheck.Metric}
 
 	diskCheck := &Check{
 		"disk",
@@ -292,8 +292,8 @@ func main() {
 		DISK_ERROR,
 	}
 
-	check.Store["sensu-disk-check"] = &check.ExtensionCheck{diskCheck.Check}
-	check.Store["sensu-disk-metric"] = &check.ExtensionCheck{diskCheck.Metric}
+	check.Store["rabbitmq-disk-check"] = &check.ExtensionCheck{diskCheck.Check}
+	check.Store["rabbitmq-disk-metric"] = &check.ExtensionCheck{diskCheck.Metric}
 
 	check.Store["rabbitmq-cluster-size"] = &check.ExtensionCheck{
 		ClusterSizeCheck,
