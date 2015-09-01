@@ -2,15 +2,16 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/michaelklishin/rabbit-hole"
 	"github.com/upfluence/sensu-client-go/sensu"
 	"github.com/upfluence/sensu-client-go/sensu/check"
 	"github.com/upfluence/sensu-client-go/sensu/handler"
 	"github.com/upfluence/sensu-client-go/sensu/transport"
-	"os"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -39,13 +40,13 @@ func nodesInfo() ([]rabbithole.NodeInfo, error) {
 }
 
 func nodesHostsToUnits() (map[string]string, error) {
-	etcdPeerUrl := "http://172.17.42.1:2380"
+	etcdServerUrl := "http://172.17.42.1:2379"
 
-	if os.Getenv("ETCD_PEER_URL") != "" {
-		etcdPeerUrl = os.Getenv("ETCD_PEER_URL")
+	if os.Getenv("ETCD_SERVER_URL") != "" {
+		etcdServerUrl = os.Getenv("ETCD_SERVER_URL")
 	}
 
-	client := etcd.NewClient([]string{etcdPeerUrl})
+	client := etcd.NewClient([]string{etcdServerUrl})
 
 	nodes, err := client.Get("/sensu/rabbitmq", false, false)
 
