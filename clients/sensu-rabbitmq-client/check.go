@@ -2,15 +2,15 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"strconv"
-	"strings"
-
+	"github.com/coreos/go-etcd/etcd"
 	"github.com/michaelklishin/rabbit-hole"
 	"github.com/upfluence/sensu-client-go/sensu"
 	"github.com/upfluence/sensu-client-go/sensu/check"
 	"github.com/upfluence/sensu-client-go/sensu/handler"
 	"github.com/upfluence/sensu-client-go/sensu/transport"
+	"os"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -36,6 +36,30 @@ func nodesInfo() ([]rabbithole.NodeInfo, error) {
 	}
 
 	return client.ListNodes()
+}
+
+func nodesHostsToUnits() (map[string]string, error) {
+	etcdPeerUrl := "http://172.17.42.1:2380"
+
+	if os.Getenv("ETCD_PEER_URL") != "" {
+		etcdPeerUrl = os.Getenv("ETCD_PEER_URL")
+	}
+
+	client := etcd.NewClient([]string{etcdPeerUrl})
+
+	nodes, err := client.Get("/sensu/rabbitmq", false, false)
+
+	if err != nil {
+		return nil, err
+	}
+
+	res := make(map[string]string)
+
+	for _, node := range nodes.Node.Nodes {
+		res[node.Key] = node.Value
+	}
+
+	return res, nil
 }
 
 type Check struct {
@@ -107,6 +131,72 @@ func (c *Check) Metric() check.ExtensionCheckResult {
 	return metric.Render()
 }
 
+func (c *Check) readErrorThreshold() (int, error) {
+	errorThreshold := c.Error
+
+	if os.Getenv(fmt.Sprintf("%s_ERROR", strings.ToUpper(c.Type))) != "" {
+		e, err := strconv.Atoi(
+			os.Getenv(fmt.Sprintf("%s_ERROR", strings.ToUpper(c.Type))),
+		)
+
+		if err != nil {
+			return 0, err
+		}
+
+		errorThreshold = e
+	}
+
+	return errorThreshold, nil
+}
+
+func (c *Check) toRestartList(failed []string) string {
+	return fmt.Sprintf(
+		"%s: %s",
+		"RMQ nodes to restart",
+		strings.Join(failed, ","),
+	)
+}
+
+func (c *Check) RestartCheck() check.ExtensionCheckResult {
+	nodes, err := nodesInfo()
+
+	if err != nil {
+		return handler.Error(fmt.Sprintf("rabbitmq: %s", err.Error()))
+	}
+
+	errorThreshold, err := c.readErrorThreshold()
+
+	if err != nil {
+		return handler.Error(fmt.Sprintf("%s error: %s", c.Type, err.Error()))
+	}
+
+	failedNodes := []string{}
+
+	hostsToUnits, err := nodesHostsToUnits()
+
+	if err != nil {
+		return handler.Error(fmt.Sprintf("%s error: %s", c.Type, err.Error()))
+	}
+
+	for _, node := range nodes {
+		if !node.IsRunning {
+			continue
+		}
+
+		if c.Comp(c.Method(node), errorThreshold) {
+			if nodeUnit, ok := hostsToUnits[node.Name]; ok {
+				failedNodes = append(failedNodes, nodeUnit)
+			}
+		}
+	}
+
+	if len(failedNodes) > 0 {
+		return handler.Error(c.toRestartList(failedNodes))
+	}
+
+	return handler.Ok("No rmq node needs restart")
+}
+
 func (c *Check) Check() check.ExtensionCheckResult {
 	nodes, err := nodesInfo()
 
@@ -128,18 +218,10 @@ func (c *Check) Check() check.ExtensionCheckResult {
 		warning = w
 	}
 
-	error := c.Error
+	error, err := c.readErrorThreshold()
 
-	if os.Getenv(fmt.Sprintf("%s_ERROR", strings.ToUpper(c.Type))) != "" {
-		e, err := strconv.Atoi(
-			os.Getenv(fmt.Sprintf("%s_ERROR", strings.ToUpper(c.Type))),
-		)
-
-		if err != nil {
-			return handler.Error(fmt.Sprintf("%s error: %s", c.Type, err.Error()))
-		}
-
-		error = e
+	if err != nil {
+		return handler.Error(fmt.Sprintf("%s error: %s", c.Type, err.Error()))
 	}
 
 	nodeError := make(map[string]int)
@@ -199,6 +281,7 @@ func main() {
 	}
 
 	check.Store["sensu-memory-check"] = &check.ExtensionCheck{memCheck.Check}
+	check.Store["sensu-memory-restart-check"] = &check.ExtensionCheck{memCheck.RestartCheck}
 	check.Store["sensu-memory-metric"] = &check.ExtensionCheck{memCheck.Metric}
 
 	diskCheck := &Check{
