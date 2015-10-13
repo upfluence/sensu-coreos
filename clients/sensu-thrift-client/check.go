@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/coreos/go-etcd/etcd"
+	"github.com/upfluence/base/base_service"
 	"github.com/upfluence/sensu-client-go/sensu"
 	"github.com/upfluence/sensu-client-go/sensu/check"
 	"github.com/upfluence/sensu-client-go/sensu/handler"
 	"github.com/upfluence/sensu-client-go/sensu/transport"
 	"github.com/upfluence/thrift-amqp-go/amqp_thrift"
 	"github.com/upfluence/thrift/lib/go/thrift"
-	"github.com/upfluence/upfluence-if/dist/base_service"
 )
 
 const (
@@ -32,6 +32,7 @@ type ThriftServiceConfiguration struct {
 }
 
 func checkService(config ThriftServiceConfiguration) bool {
+	var trans thrift.TTransport
 	amqpURL := defaultAMQPURL
 	timeout := defaultTimeout
 
@@ -45,15 +46,19 @@ func checkService(config ThriftServiceConfiguration) bool {
 		amqpURL = os.Getenv("RABBITMQ_URL")
 	}
 
-	log.Println(fmt.Sprintf("URL: %s", amqpURL))
-	log.Println(fmt.Sprintf("exchange: %s", config.TransportConfig["exchange"]))
-	log.Println(fmt.Sprintf("routing: %s", config.TransportConfig["routing"]))
+	if config.Transport == "http" {
+		trans, _ = thrift.NewTHttpPostClient(config.TransportConfig["url"])
+	} else {
+		log.Println(fmt.Sprintf("URL: %s", amqpURL))
+		log.Println(fmt.Sprintf("exchange: %s", config.TransportConfig["exchange"]))
+		log.Println(fmt.Sprintf("routing: %s", config.TransportConfig["routing"]))
 
-	trans, _ := amqp_thrift.NewTAMQPClient(
-		amqpURL,
-		config.TransportConfig["exchange"],
-		config.TransportConfig["routing"],
-	)
+		trans, _ = amqp_thrift.NewTAMQPClient(
+			amqpURL,
+			config.TransportConfig["exchange"],
+			config.TransportConfig["routing"],
+		)
+	}
 
 	trans.Open()
 	defer trans.Close()
