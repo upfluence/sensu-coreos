@@ -31,7 +31,7 @@ type ThriftServiceConfiguration struct {
 	TransportConfig map[string]string `json:"transport_config"`
 }
 
-func checkService(config ThriftServiceConfiguration) bool {
+func checkService(config ThriftServiceConfiguration, name string) bool {
 	var trans thrift.TTransport
 	amqpURL := defaultAMQPURL
 	timeout := defaultTimeout
@@ -47,11 +47,21 @@ func checkService(config ThriftServiceConfiguration) bool {
 	}
 
 	if config.Transport == "http" {
+		log.Printf(
+			"%s: type:http url:%s",
+			name,
+			config.TransportConfig["url"],
+		)
+
 		trans, _ = thrift.NewTHttpPostClient(config.TransportConfig["url"])
 	} else {
-		log.Println(fmt.Sprintf("URL: %s", amqpURL))
-		log.Println(fmt.Sprintf("exchange: %s", config.TransportConfig["exchange"]))
-		log.Println(fmt.Sprintf("routing: %s", config.TransportConfig["routing"]))
+		log.Printf(
+			"%s: type:amqp exchange:%s routing_key:%s url:%s",
+			name,
+			config.TransportConfig["exchange"],
+			config.TransportConfig["routing"],
+			amqpURL,
+		)
 
 		trans, _ = amqp_thrift.NewTAMQPClient(
 			amqpURL,
@@ -80,7 +90,7 @@ func checkService(config ThriftServiceConfiguration) bool {
 	go func() {
 		s, err := client.GetStatus()
 		if err != nil {
-			log.Println(err.Error())
+			log.Printf("%s: error:%s", name, err.Error())
 		}
 
 		c <- s
@@ -132,11 +142,14 @@ func ThriftCheck() check.ExtensionCheckResult {
 
 		go func(config ThriftServiceConfiguration, node *etcd.Node) {
 			defer wg.Done()
-			if !checkService(config) {
+
+			parts := strings.Split(node.Key, "/")
+			service := parts[len(parts)-1]
+
+			if !checkService(config, service) {
 				mu.Lock()
 				defer mu.Unlock()
-				parts := strings.Split(node.Key, "/")
-				failedServices = append(failedServices, parts[len(parts)-1])
+				failedServices = append(failedServices, service)
 			}
 		}(config, node)
 	}
