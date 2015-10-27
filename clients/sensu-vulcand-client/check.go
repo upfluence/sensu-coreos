@@ -89,11 +89,11 @@ func VulcandServersCheck() check.ExtensionCheckResult {
 		nb, err := GetVulcandServers(backend)
 
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("%s error:%s", err.Error()))
+			errors = append(errors, fmt.Sprintf("%s error:%s", backend, err.Error()))
 		} else if nb <= conf.ErrorThreshold {
-			errors = append(errors, fmt.Sprintf("%s servers:%d", nb))
+			errors = append(errors, fmt.Sprintf("%s servers:%d", backend, nb))
 		} else if nb <= conf.WarningThreshold {
-			warnings = append(warnings, fmt.Sprintf("%s servers:%d", nb))
+			warnings = append(warnings, fmt.Sprintf("%s servers:%d", backend, nb))
 		}
 	}
 
