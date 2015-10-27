@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -54,10 +55,22 @@ func GetBackends() (map[string]BackendConfiguration, error) {
 	for _, node := range resp.Node.Nodes {
 		var conf BackendConfiguration
 
-		json.Unmarshal([]byte(node.Value), &conf)
+		err := json.Unmarshal([]byte(node.Value), &conf)
+
+		if err != nil {
+			return result, err
+		}
 
 		parts := strings.Split(node.Key, "/")
-		result[parts[len(parts)-1]] = conf
+		name := parts[len(parts)-1]
+		result[name] = conf
+
+		log.Printf(
+			"%s: WarningThreshold:%d ErrorThreshold:%d",
+			name,
+			conf.WarningThreshold,
+			conf.ErrorThreshold,
+		)
 	}
 
 	return result, nil
