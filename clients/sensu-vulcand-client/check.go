@@ -18,8 +18,8 @@ import (
 )
 
 type BackendConfiguration struct {
-	WarningThreshold int
-	ErrorThreshold   int
+	WarningThreshold int `json:"warning_threshold"`
+	ErrorThreshold   int `json:"error_threshold"`
 }
 
 func GetVulcandServers(backend string) (int, error) {
