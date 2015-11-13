@@ -24,8 +24,8 @@ import (
 const (
 	DefaultNamespace                   string  = "machines"
 	DefaultBlacklist                   string  = ".+-backup\\..+"
-	DefaultClusterSizeWarningThreshold float64 = 7.0
-	DefaultClusterSizeErrorThreshold   float64 = 6.0
+	DefaultClusterSizeWarningThreshold float64 = 9.0
+	DefaultClusterSizeErrorThreshold   float64 = 8.0
 )
 
 func EtcdNamespace() string {
