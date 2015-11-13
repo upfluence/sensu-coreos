@@ -66,16 +66,10 @@ func EtcdGlobalCheck() check.ExtensionCheckResult {
 				if err != nil {
 					log.Printf("%s: %s", name, err.Error())
 
-					// Sad, https://github.com/golang/go/issues/4373
-					if strings.HasSuffix(
-						err.Error(),
-						"use of closed network connection",
-					) {
-						mu.Lock()
-						defer mu.Unlock()
+					mu.Lock()
+					defer mu.Unlock()
 
-						failedInstances = append(failedInstances, instance.InstanceId)
-					}
+					failedInstances = append(failedInstances, instance.InstanceId)
 				}
 			}()
 		}
@@ -87,7 +81,7 @@ func EtcdGlobalCheck() check.ExtensionCheckResult {
 		return handler.Ok("Every instances are running")
 	} else {
 		return handler.Error(fmt.Sprintf(
-			"Instances dead: %s",
+			"Instances with no etcd response: %s",
 			strings.Join(failedInstances, ","),
 		))
 	}
