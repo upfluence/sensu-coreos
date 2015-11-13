@@ -102,7 +102,7 @@ func VulcandServersCheck() check.ExtensionCheckResult {
 			fmt.Sprintf("Errored backends: %s", strings.Join(errors, ", ")),
 		)
 	} else if len(warnings) > 0 {
-		return handler.Error(
+		return handler.Warning(
 			fmt.Sprintf("Warning backends: %s", strings.Join(warnings, ", ")),
 		)
 	}
