@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/cloudfoundry/gosigar"
+	"github.com/fsouza/go-dockerclient"
 	"github.com/upfluence/sensu-client-go/sensu"
 	"github.com/upfluence/sensu-client-go/sensu/check"
 	"github.com/upfluence/sensu-client-go/sensu/handler"
@@ -29,6 +31,7 @@ const (
 	DISK_ERROR           = 150 * GB
 	DOCKER_VSZ_ERROR     = 3.2 * GB
 	DOCKER_VSZ_WARNING   = 2.5 * GB
+	DOCKER_ENDPOINT      = "unix:///var/run/docker.sock"
 )
 
 type Check struct {
@@ -200,6 +203,58 @@ var (
 	}
 )
 
+func DockerContainersMetric() check.ExtensionCheckResult {
+	endpoint := os.Getenv("DOCKER_ENDPOINT")
+	metric := handler.Metric{}
+
+	if endpoint == "" {
+		endpoint = DOCKER_ENDPOINT
+	}
+
+	client, _ := docker.NewClient(endpoint)
+
+	cs, err := client.ListContainers(docker.ListContainersOptions{All: true})
+
+	if err != nil {
+		log.Println(err.Error())
+
+		return metric.Render()
+	}
+
+	for _, container := range cs {
+		c, err := client.InspectContainer(container.ID)
+
+		if err != nil {
+			log.Println(err.Error())
+			continue
+		}
+
+		metric.AddPoint(
+			&handler.Point{
+				fmt.Sprintf(
+					"docker.containers.%s.%s.memory",
+					os.Getenv("SENSU_HOSTNAME"),
+					c.Name,
+				),
+				float64(c.Config.Memory),
+			},
+		)
+
+		metric.AddPoint(
+			&handler.Point{
+				fmt.Sprintf(
+					"docker.containers.%s.%s.memory_swap",
+					os.Getenv("SENSU_HOSTNAME"),
+					c.Name,
+				),
+				float64(c.Config.MemorySwap),
+			},
+		)
+	}
+
+	return metric.Render()
+}
+
 func main() {
 	cfg := sensu.NewConfigFromFlagSet(sensu.ExtractFlags())
 
@@ -222,6 +277,10 @@ func main() {
 	}
 	check.Store["host-docker_vsz-metric"] = &check.ExtensionCheck{
 		dockerVSZCheck.Metric,
+	}
+
+	check.Store["docker-containers-metric"] = &check.ExtensionCheck{
+		DockerContainersMetric,
 	}
 
 	client.Start()
