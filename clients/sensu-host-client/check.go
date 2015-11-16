@@ -213,7 +213,7 @@ func DockerContainersMetric() check.ExtensionCheckResult {
 
 	client, _ := docker.NewClient(endpoint)
 
-	cs, err := client.ListContainers(docker.ListContainersOptions{All: true})
+	cs, err := client.ListContainers(docker.ListContainersOptions{})
 
 	if err != nil {
 		log.Println(err.Error())
@@ -234,7 +234,7 @@ func DockerContainersMetric() check.ExtensionCheckResult {
 				fmt.Sprintf(
 					"docker.containers.%s.%s.memory",
 					os.Getenv("SENSU_HOSTNAME"),
-					c.Name,
+					c.Name[1:len(c.Name)],
 				),
 				float64(c.Config.Memory),
 			},
@@ -245,7 +245,7 @@ func DockerContainersMetric() check.ExtensionCheckResult {
 				fmt.Sprintf(
 					"docker.containers.%s.%s.memory_swap",
 					os.Getenv("SENSU_HOSTNAME"),
-					c.Name,
+					c.Name[1:len(c.Name)],
 				),
 				float64(c.Config.MemorySwap),
 			},
