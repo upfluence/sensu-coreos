@@ -236,8 +236,8 @@ func DockerContainersMetric() check.ExtensionCheckResult {
 			log.Println(err.Error())
 			continue
 		}
-
-		mem, err := strconv.Atoi(string(f))
+		memString := string(f)
+		mem, err := strconv.Atoi(memString[0 : len(memString)-1])
 
 		if err != nil {
 			log.Println(err.Error())
