@@ -156,7 +156,7 @@ var (
 				return 0.0, err
 			}
 
-			return float64(v.Used), nil
+			return float64(v.Used * 1024), nil
 		},
 	}
 
@@ -222,7 +222,22 @@ func DockerContainersMetric() check.ExtensionCheckResult {
 	}
 
 	for _, container := range cs {
-		c, err := client.InspectContainer(container.ID)
+		name := container.Names[0]
+		name = name[1:len(name)]
+
+		f, err := ioutil.ReadFile(
+			fmt.Sprintf(
+				"/sys/fs/cgroup/memory/system.slice/docker-%s.scope/memory.usage_in_bytes",
+				container.ID,
+			),
+		)
+
+		if err != nil {
+			log.Println(err.Error())
+			continue
+		}
+
+		mem, err := strconv.Atoi(string(f))
 
 		if err != nil {
 			log.Println(err.Error())
@@ -234,20 +249,9 @@ func DockerContainersMetric() check.ExtensionCheckResult {
 				fmt.Sprintf(
 					"docker.containers.%s.%s.memory",
 					os.Getenv("SENSU_HOSTNAME"),
-					c.Name[1:len(c.Name)],
+					name,
 				),
-				float64(c.Config.Memory),
-			},
-		)
-
-		metric.AddPoint(
-			&handler.Point{
-				fmt.Sprintf(
-					"docker.containers.%s.%s.memory_swap",
-					os.Getenv("SENSU_HOSTNAME"),
-					c.Name[1:len(c.Name)],
-				),
-				float64(c.Config.MemorySwap),
+				float64(mem),
 			},
 		)
 	}
