@@ -180,13 +180,21 @@ var (
 		warningThreshold: DOCKER_VSZ_ERROR,
 		displayValue:     displayBytes,
 		fetchValue: func() (float64, error) {
-			f, err := ioutil.ReadFile("/var/run/docker.pid")
+			f, err := os.Open("/var/run/docker.pid")
 
 			if err != nil {
 				return 0.0, err
 			}
 
-			pid, err := strconv.Atoi(string(f))
+			defer f.Close()
+
+			blob, err := ioutil.ReadAll(f)
+
+			if err != nil {
+				return 0.0, err
+			}
+
+			pid, err := strconv.Atoi(string(blob))
 
 			if err != nil {
 				return 0.0, err
@@ -225,7 +233,7 @@ func DockerContainersMetric() check.ExtensionCheckResult {
 		name := container.Names[0]
 		name = name[1:len(name)]
 
-		f, err := ioutil.ReadFile(
+		f, err := os.Open(
 			fmt.Sprintf(
 				"/sys/fs/cgroup/memory/system.slice/docker-%s.scope/memory.usage_in_bytes",
 				container.ID,
@@ -236,7 +244,15 @@ func DockerContainersMetric() check.ExtensionCheckResult {
 			log.Println(err.Error())
 			continue
 		}
-		memString := string(f)
+		defer f.Close()
+
+		blob, err := ioutil.ReadAll(f)
+		if err != nil {
+			log.Println(err.Error())
+			continue
+		}
+
+		memString := string(blob)
 		mem, err := strconv.Atoi(memString[0 : len(memString)-1])
 
 		if err != nil {
