@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -18,19 +20,70 @@ const (
 	MEMORY_WARNING = 1024
 	MEMORY_ERROR   = 1280
 
-	DISK_WARNING          = 5120
-	DISK_ERROR            = 1024
-	CLUSTER_SIZE_EXPECTED = 3
+	DISK_WARNING            = 5120
+	DISK_ERROR              = 1024
+	CLUSTER_SIZE_EXPECTED   = 3
+	BLACKLIST_PATTERN_QUEUE = "(^amq|-\\d{10}$|-monitoring-queue)"
 )
 
-func nodesInfo() ([]rabbithole.NodeInfo, error) {
+func buildRabbitClient() (*rabbithole.Client, error) {
 	url := "http://guest:guest@localhost:15672"
 
 	if os.Getenv("RABBITMQ_ADMIN_URL") != "" {
 		url = os.Getenv("RABBITMQ_ADMIN_URL")
 	}
 
-	client, err := rabbithole.NewClient(url, "", "")
+	return rabbithole.NewClient(url, "", "")
+}
+
+func queueMetrics() check.ExtensionCheckResult {
+	metric := handler.Metric{}
+	client, err := buildRabbitClient()
+
+	if err != nil {
+		log.Println(err.Error())
+
+		return metric.Render()
+	}
+
+	regx := regexp.MustCompile(BLACKLIST_PATTERN_QUEUE)
+	qs, err := client.ListQueuesIn("/")
+
+	if err != nil {
+		log.Println(err.Error())
+
+		return metric.Render()
+	}
+
+	for _, q := range qs {
+		if len(regx.Find([]byte(q.Name))) == 0 {
+			metric.AddPoint(
+				&handler.Point{
+					fmt.Sprintf("rabbitmq.queues.%s.consumers", q.Name),
+					float64(q.Consumers),
+				},
+			)
+			metric.AddPoint(
+				&handler.Point{
+					fmt.Sprintf("rabbitmq.queues.%s.messages", q.Name),
+					float64(q.Messages),
+				},
+			)
+
+			metric.AddPoint(
+				&handler.Point{
+					fmt.Sprintf("rabbitmq.queues.%s.message_rates", q.Name),
+					float64(q.MessagesDetails.Rate),
+				},
+			)
+		}
+	}
+
+	return metric.Render()
+}
+
+func nodesInfo() ([]rabbithole.NodeInfo, error) {
+	client, err := buildRabbitClient()
 
 	if err != nil {
 		return nil, err
@@ -299,6 +352,8 @@ func main() {
 	check.Store["rabbitmq-cluster-size"] = &check.ExtensionCheck{
 		ClusterSizeCheck,
 	}
+
+	check.Store["rabbitmq-queues-metric"] = &check.ExtensionCheck{queueMetrics}
 
 	client.Start()
 }
