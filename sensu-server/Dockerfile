@@ -3,7 +3,7 @@ MAINTAINER Alexis Montagne <alexis.montagne@gmail.com>
 
 RUN gem instal mixlib-cli
 RUN curl -sL \
-  https://github.com/upfluence/sensu-plugin/releases/download/v1.1.0-upfluence/sensu-plugin-1.1.0.gem \
+  https://github.com/upfluence/sensu-plugin/releases/download/v1.2.1/sensu-plugin-1.2.1.gem \
   > /tmp/sensu-plugin.gem && gem install --local /tmp/sensu-plugin.gem
 
 RUN curl -Ls https://github.com/kelseyhightower/confd/releases/download/v0.6.3/confd-0.6.3-linux-amd64 \
