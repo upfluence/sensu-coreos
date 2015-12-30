@@ -5,7 +5,7 @@ COPY etcdenv /etcdenv
 COPY flush_rabbit_queues /flush_rabbit_queues
 
 RUN chmod +x /etcdenv
-RUN chmod +x /sensu-etcd-client
+RUN chmod +x /flush_rabbit_queues
 
 ENV NAMESPACE /environments/sensu,/environments/global
 
