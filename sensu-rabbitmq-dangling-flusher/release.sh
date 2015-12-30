@@ -7,3 +7,5 @@ GOOS=linux CGO_ENABLED=0 GOARCH=amd64 go build -o flush_rabbit_queues
 
 docker build -t upfluence/sensu-rabbitmq-flusher:latest .
 docker push upfluence/sensu-rabbitmq-flusher
+
+rm flush_rabbit_queues
