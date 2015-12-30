@@ -4,7 +4,7 @@ mkdir dist/
 
 thrift -out dist --gen go:thrift_import=github.com/upfluence/thrift/lib/go/thrift contrib/base_service.thrift
 
-curl -sL https://github.com/upfluence/etcdenv/releases/download/v0.3.1/etcdenv-linux-amd64-0.3.1 \
+curl -sL https://github.com/upfluence/etcdenv/releases/download/v0.3.3/etcdenv-linux-amd64-0.3.3 \
  > etcdenv
 
 GOOS=linux CGO_ENABLED=0 GOARCH=amd64 go build -o sensu-thrift-client
