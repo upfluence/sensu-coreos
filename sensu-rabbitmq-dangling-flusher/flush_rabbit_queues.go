@@ -4,6 +4,7 @@ import (
 	"github.com/michaelklishin/rabbit-hole"
 	"log"
 	"os"
+	"regexp"
 )
 
 const DEFAULT_RABBITMQ_ADMIN_URL = "http://127.0.0.1:15672"
@@ -23,9 +24,11 @@ func main() {
 		panic(err)
 	}
 
+	matchingQueuesRegexp := regexp.MustCompile("-\\d+\\.[\\d]+.[\\d]+-[\\d]+$")
+
 	queues, _ := rmqc.ListQueues()
 	for _, queue := range queues {
-		if queue.Consumers == 0 {
+		if matchingQueuesRegexp.MatchString(queue.Name) && queue.Consumers == 0 {
 			log.Println("Deleting %s...", queue.Name)
 			_, err := rmqc.DeleteQueue("/", queue.Name)
 			if err != nil {
