@@ -12,8 +12,13 @@ RUN curl -sL https://github.com/upfluence/etcdenv/releases/download/v0.3.2/etcde
 
 RUN git clone https://github.com/upfluence/sensu /sensu
 
+COPY gemrc /root/.gemrc
+
+RUN curl -sL \
+  https://github.com/upfluence/sensu-transport/releases/download/v3.3.0/sensu-transport-3.3.0.gem \
+  > /tmp/sensu-transport.gem && gem install --local /tmp/sensu-transport.gem
+
 WORKDIR /sensu
 
 ENV SENSU_NAMESPACE /environments/sensu
-COPY gemrc /root/.gemrc
 RUN bundle install --without test --without development
