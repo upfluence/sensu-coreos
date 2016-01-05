@@ -1,9 +1,9 @@
 FROM alpine
 MAINTAINER Alexis Montagne <alexis.montagne@gmail.com>
 
-RUN apk --update add curl-dev ruby-dev build-base ruby ruby-bundler git \
-  libffi-dev && rm -rf /usr/share/man && rm -rf /usr/share/ri && rm -rf \
-  /var/cache/apk/*
+RUN apk --update add curl-dev ruby-dev build-base ruby ruby-io-console \
+  ruby-bundler git libffi-dev && rm -rf /usr/share/man && rm -rf /usr/share/ri \
+  && rm -rf /var/cache/apk/*
 
 RUN curl -sL https://github.com/upfluence/etcdenv/releases/download/v0.3.2/etcdenv-linux-amd64-0.3.2 \
   > /usr/bin/etcdenv && \
