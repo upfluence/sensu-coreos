@@ -4,4 +4,4 @@ MAINTAINER Alexis Montagne <alexis.montagne@gmail.com>
 ENV SENSU_API_PORT 3000
 
 CMD etcdenv -n $SENSU_NAMESPACE -s http://172.17.42.1:4001 \
-  /sensu/exe/sensu-api -v
+  /sensu/bin/sensu-api -v
