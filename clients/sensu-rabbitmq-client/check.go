@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	MEMORY_WARNING = 1024
-	MEMORY_ERROR   = 1280
+	MEMORY_WARNING = 1480
+	MEMORY_ERROR   = 1580
 
 	DISK_WARNING            = 5120
 	DISK_ERROR              = 1024

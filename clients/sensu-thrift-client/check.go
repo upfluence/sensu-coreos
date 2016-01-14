@@ -91,6 +91,8 @@ func checkService(config ThriftServiceConfiguration, name string) bool {
 		s, err := client.GetStatus()
 		if err != nil {
 			log.Printf("%s: error:%s", name, err.Error())
+
+			s, _ = client.GetStatus()
 		}
 
 		c <- s
