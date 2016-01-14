@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -22,19 +23,19 @@ func buildEc2Client() *ec2.EC2 {
 	return ec2.New(auth, aws.USEast)
 }
 
-func EtcdGlobalCheck() check.ExtensionCheckResult {
-	client := buildEc2Client()
+func testCoreInstances(test func(string) bool) ([]string, error) {
+	var (
+		mu              sync.Mutex
+		wg              sync.WaitGroup
+		failedInstances []string
+		client          = buildEc2Client()
+	)
 
 	r, err := client.Instances([]string{}, nil)
 
 	if err != nil {
-		return handler.Error(fmt.Sprintf("aws: %s", err.Error()))
+		return failedInstances, err
 	}
-
-	failedInstances := []string{}
-
-	var mu sync.Mutex
-	var wg sync.WaitGroup
 
 	for _, reservation := range r.Reservations {
 		for _, instance := range reservation.Instances {
@@ -57,14 +58,8 @@ func EtcdGlobalCheck() check.ExtensionCheckResult {
 			go func() {
 				defer wg.Done()
 
-				timeout := 15 * time.Second
-				client := http.Client{Timeout: timeout}
-				_, err := client.Get(
-					fmt.Sprintf("http://%s:2379/v2/keys", instance.PrivateIpAddress),
-				)
-
-				if err != nil {
-					log.Printf("%s: %s", name, err.Error())
+				if !test(instance.PrivateIpAddress) {
+					log.Printf("%s: failed", name)
 
 					mu.Lock()
 					defer mu.Unlock()
@@ -77,13 +72,60 @@ func EtcdGlobalCheck() check.ExtensionCheckResult {
 
 	wg.Wait()
 
-	if len(failedInstances) == 0 {
+	return failedInstances, nil
+}
+
+func SSHGlobalCheck() check.ExtensionCheckResult {
+	failedInstances, err := testCoreInstances(
+		func(ipAddress string) bool {
+			c, _ := net.DialTimeout("tcp", ipAddress+":22", 5*time.Second)
+			c.SetDeadline(time.Now().Add(5 * time.Second))
+
+			buf := make([]byte, 1024)
+			_, err := c.Read(buf)
+
+			return err == nil
+		},
+	)
+
+	if err != nil {
+		return handler.Error(fmt.Sprintf("aws: %s", err.Error()))
+	} else if len(failedInstances) == 0 {
 		return handler.Ok("Every instances are running")
 	} else {
-		return handler.Error(fmt.Sprintf(
-			"Instances with no etcd response: %s",
-			strings.Join(failedInstances, ","),
-		))
+		return handler.Error(
+			fmt.Sprintf(
+				"Instances with no ssh response: %s",
+				strings.Join(failedInstances, ","),
+			),
+		)
+	}
+}
+
+func EtcdGlobalCheck() check.ExtensionCheckResult {
+	failedInstances, err := testCoreInstances(
+		func(ipAddress string) bool {
+
+			client := http.Client{Timeout: 15 * time.Second}
+			_, err := client.Get(
+				fmt.Sprintf("http://%s:2379/v2/keys", ipAddress),
+			)
+
+			return err == nil
+		},
+	)
+
+	if err != nil {
+		return handler.Error(fmt.Sprintf("aws: %s", err.Error()))
+	} else if len(failedInstances) == 0 {
+		return handler.Ok("Every instances are running")
+	} else {
+		return handler.Error(
+			fmt.Sprintf(
+				"Instances with no etcd response: %s",
+				strings.Join(failedInstances, ","),
+			),
+		)
 	}
 }
 
@@ -125,6 +167,7 @@ func main() {
 
 	check.Store["aws-nodes-health-check"] = &check.ExtensionCheck{AWSCheck}
 	check.Store["aws-nodes-etcd-check"] = &check.ExtensionCheck{EtcdGlobalCheck}
+	check.Store["aws-nodes-ssh-check"] = &check.ExtensionCheck{SSHGlobalCheck}
 
 	client.Start()
 }
