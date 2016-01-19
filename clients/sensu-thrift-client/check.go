@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-etcd/etcd"
+	"github.com/streadway/amqp"
 	"github.com/upfluence/base/base_service"
 	"github.com/upfluence/sensu-client-go/sensu"
 	"github.com/upfluence/sensu-client-go/sensu/check"
@@ -31,7 +32,12 @@ type ThriftServiceConfiguration struct {
 	TransportConfig map[string]string `json:"transport_config"`
 }
 
-func checkService(config ThriftServiceConfiguration, name string) bool {
+func checkService(
+	config ThriftServiceConfiguration,
+	name string,
+	rmqConn *amqp.Connection,
+	rmqChannel *amqp.Channel,
+) bool {
 	var trans thrift.TTransport
 	amqpURL := defaultAMQPURL
 	timeout := defaultTimeout
@@ -40,10 +46,6 @@ func checkService(config ThriftServiceConfiguration, name string) bool {
 		if t, err := strconv.Atoi(os.Getenv("TIMEOUT")); err == nil {
 			timeout = t
 		}
-	}
-
-	if os.Getenv("RABBITMQ_URL") != "" {
-		amqpURL = os.Getenv("RABBITMQ_URL")
 	}
 
 	if config.Transport == "http" {
@@ -63,15 +65,18 @@ func checkService(config ThriftServiceConfiguration, name string) bool {
 			amqpURL,
 		)
 
-		trans, _ = amqp_thrift.NewTAMQPClient(
-			amqpURL,
+		trans, _ = amqp_thrift.NewTAMQPClientFromConn(
+			rmqConn,
+			rmqChannel,
 			config.TransportConfig["exchange"],
 			config.TransportConfig["routing"],
 		)
 	}
 
-	trans.Open()
-	defer trans.Close()
+	if err := trans.Open(); err != nil {
+		log.Printf("%s open error:%s", name, err.Error())
+		return false
+	}
 
 	var protocol thrift.TProtocolFactory
 	protocol = thrift.NewTBinaryProtocolFactoryDefault()
@@ -92,7 +97,10 @@ func checkService(config ThriftServiceConfiguration, name string) bool {
 		if err != nil {
 			log.Printf("%s: error:%s", name, err.Error())
 
-			s, _ = client.GetStatus()
+			s, err = client.GetStatus()
+			if err != nil {
+				log.Printf("%s: 2nd error:%s", name, err.Error())
+			}
 		}
 
 		c <- s
@@ -127,6 +135,16 @@ func ThriftCheck() check.ExtensionCheckResult {
 		return handler.Error(fmt.Sprintf("etcd: %s", err.Error()))
 	}
 
+	rmqConn, err := amqp.Dial(os.Getenv("RABBITMQ_URL"))
+	if err != nil {
+		return handler.Error(fmt.Sprintf("rabbitmq: %s", err.Error()))
+	}
+
+	rmqChannel, err := rmqConn.Channel()
+	if err != nil {
+		return handler.Error(fmt.Sprintf("rabbitmq: %s", err.Error()))
+	}
+
 	failedServices := []string{}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -148,7 +166,7 @@ func ThriftCheck() check.ExtensionCheckResult {
 			parts := strings.Split(node.Key, "/")
 			service := parts[len(parts)-1]
 
-			if !checkService(config, service) {
+			if !checkService(config, service, rmqConn, rmqChannel) {
 				mu.Lock()
 				defer mu.Unlock()
 				failedServices = append(failedServices, service)
