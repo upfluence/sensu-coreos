@@ -26,6 +26,8 @@ const (
 	DefaultBlacklist                   string  = ".+-backup\\..+"
 	DefaultClusterSizeWarningThreshold float64 = 9.0
 	DefaultClusterSizeErrorThreshold   float64 = 8.0
+	overloadCoef                       float32 = 1.3
+	rescheduleBlacklist                string  = "rabbit|elasticsearch|fleet-ship|healthcheck"
 )
 
 func EtcdNamespace() string {
@@ -123,6 +125,103 @@ func ClusterSize() (float64, error) {
 	}
 
 	return float64(len(machines)), nil
+}
+
+func UnitBalancingCheck() check.ExtensionCheckResult {
+	cl, err := NewFleetClient()
+
+	if err != nil {
+		return handler.Error(err.Error())
+	}
+
+	machines, err := cl.Machines()
+
+	if err != nil {
+		return handler.Error(err.Error())
+	}
+
+	machinesByRoles := make(map[string][]string)
+
+	for _, machine := range machines {
+		machinesByRoles[machine.Metadata["role"]] = append(
+			machinesByRoles[machine.Metadata["role"]],
+			machine.ID,
+		)
+	}
+
+	units, err := cl.Units()
+
+	if err != nil {
+		return handler.Error(err.Error())
+	}
+
+	unitsByMachines := make(map[string][]string)
+
+	for _, unit := range units {
+		unitsByMachines[unit.MachineID] = append(
+			unitsByMachines[unit.MachineID],
+			unit.Name,
+		)
+	}
+
+	overloadedMachines := make(map[string]int)
+
+	for _, machines := range machinesByRoles {
+		totalJobs := 0
+
+		for _, id := range machines {
+			totalJobs += len(unitsByMachines[id])
+		}
+
+		for _, id := range machines {
+			deltaUnits := int(
+				float32(len(unitsByMachines[id]))/overloadCoef - float32(totalJobs)/float32(len(machines)),
+			)
+
+			if deltaUnits >= 1 {
+				overloadedMachines[id] = deltaUnits
+			}
+		}
+	}
+
+	pickedUnits := []string{}
+	blacklistUnits := regexp.MustCompile(rescheduleBlacklist)
+
+	for id, total := range overloadedMachines {
+		picked := 0
+
+		for _, unit := range unitsByMachines[id] {
+			if picked >= total {
+				break
+			}
+
+			if !blacklistUnits.Match([]byte(unit)) {
+				selectable := true
+
+				for _, curUnit := range pickedUnits {
+					if strings.Split(curUnit, "@")[0] == strings.Split(unit, "@")[0] {
+						selectable = false
+					}
+				}
+
+				if selectable {
+					pickedUnits = append(pickedUnits, unit)
+					picked++
+				}
+			}
+		}
+	}
+
+	if len(pickedUnits) > 0 {
+		return handler.Error(
+			fmt.Sprintf(
+				"Units selected to be rebalanced: %s",
+				strings.Join(pickedUnits, ","),
+			),
+		)
+	} else {
+		return handler.Ok("Cluster well balanced")
+	}
 }
 
 func UnitsCheck() check.ExtensionCheckResult {
@@ -326,6 +425,7 @@ func main() {
 	client := sensu.NewClient(t, cfg)
 
 	check.Store["fleet-units-metrics"] = &check.ExtensionCheck{UnitsMetric}
+	check.Store["fleet-cluster-balancing"] = &check.ExtensionCheck{UnitBalancingCheck}
 	check.Store["fleet-machines-metrics"] = &check.ExtensionCheck{MachinesMetric}
 	check.Store["fleet-machines-check"] = &check.ExtensionCheck{MachineCheck}
 	check.Store["fleet-unit-states-checks"] = &check.ExtensionCheck{
