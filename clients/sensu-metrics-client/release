@@ -1,0 +1,6 @@
+#!/bin/sh
+
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o sensu-metrics-client -installsuffix netgo -a
+
+docker build --no-cache -t upfluence/sensu-metrics-client:latest .
+docker push upfluence/sensu-metrics-client
