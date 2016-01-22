@@ -70,6 +70,7 @@ func checkService(
 			rmqChannel,
 			config.TransportConfig["exchange"],
 			config.TransportConfig["routing"],
+			"sensu-thrift-client",
 		)
 	}
 
@@ -77,6 +78,7 @@ func checkService(
 		log.Printf("%s open error:%s", name, err.Error())
 		return false
 	}
+	defer trans.Close()
 
 	var protocol thrift.TProtocolFactory
 	protocol = thrift.NewTBinaryProtocolFactoryDefault()
@@ -139,6 +141,8 @@ func ThriftCheck() check.ExtensionCheckResult {
 	if err != nil {
 		return handler.Error(fmt.Sprintf("rabbitmq: %s", err.Error()))
 	}
+
+	defer rmqConn.Close()
 
 	rmqChannel, err := rmqConn.Channel()
 	if err != nil {
