@@ -78,11 +78,16 @@ func testCoreInstances(test func(string) bool) ([]string, error) {
 func SSHGlobalCheck() check.ExtensionCheckResult {
 	failedInstances, err := testCoreInstances(
 		func(ipAddress string) bool {
-			c, _ := net.DialTimeout("tcp", ipAddress+":22", 5*time.Second)
+			c, err := net.DialTimeout("tcp", ipAddress+":22", 5*time.Second)
+
+			if err != nil {
+				return false
+			}
+
 			c.SetDeadline(time.Now().Add(5 * time.Second))
 
 			buf := make([]byte, 1024)
-			_, err := c.Read(buf)
+			_, err = c.Read(buf)
 
 			return err == nil
 		},
