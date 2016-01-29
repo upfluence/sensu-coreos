@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cloudfoundry/gosigar"
@@ -33,6 +34,8 @@ const (
 	DOCKER_VSZ_WARNING   = 2.5 * GB
 	DOCKER_ENDPOINT      = "unix:///var/run/docker.sock"
 )
+
+var metrics = []string{"memory.usage_in_bytes", "cpuacct.usage"}
 
 type Check struct {
 	Name             string
@@ -211,6 +214,51 @@ var (
 	}
 )
 
+func containerMetric(
+	container docker.APIContainers,
+	metric string,
+) (*handler.Point, error) {
+	f, err := os.Open(
+		fmt.Sprintf(
+			"/sys/fs/cgroup/%s/system.slice/docker-%s.scope/%s",
+			strings.Split(metric, ".")[0],
+			container.ID,
+			metric,
+		),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer f.Close()
+
+	blob, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+
+	valString := string(blob)
+	val, err := strconv.Atoi(valString[:len(valString)-1])
+
+	if err != nil {
+		return nil, err
+	}
+
+	name := container.Names[0]
+	name = name[1:len(name)]
+
+	return &handler.Point{
+		fmt.Sprintf(
+			"docker.containers.%s.%s.%s",
+			os.Getenv("SENSU_HOSTNAME"),
+			name,
+			strings.Split(metric, ".")[0],
+		),
+		float64(val),
+	}, nil
+}
+
 func DockerContainersMetric() check.ExtensionCheckResult {
 	endpoint := os.Getenv("DOCKER_ENDPOINT")
 	metric := handler.Metric{}
@@ -230,46 +278,16 @@ func DockerContainersMetric() check.ExtensionCheckResult {
 	}
 
 	for _, container := range cs {
-		name := container.Names[0]
-		name = name[1:len(name)]
+		for _, met := range metrics {
+			point, err := containerMetric(container, met)
 
-		f, err := os.Open(
-			fmt.Sprintf(
-				"/sys/fs/cgroup/memory/system.slice/docker-%s.scope/memory.usage_in_bytes",
-				container.ID,
-			),
-		)
+			if err != nil {
+				log.Println(err.Error())
+				continue
+			}
 
-		if err != nil {
-			log.Println(err.Error())
-			continue
+			metric.AddPoint(point)
 		}
-		defer f.Close()
-
-		blob, err := ioutil.ReadAll(f)
-		if err != nil {
-			log.Println(err.Error())
-			continue
-		}
-
-		memString := string(blob)
-		mem, err := strconv.Atoi(memString[0 : len(memString)-1])
-
-		if err != nil {
-			log.Println(err.Error())
-			continue
-		}
-
-		metric.AddPoint(
-			&handler.Point{
-				fmt.Sprintf(
-					"docker.containers.%s.%s.memory",
-					os.Getenv("SENSU_HOSTNAME"),
-					name,
-				),
-				float64(mem),
-			},
-		)
 	}
 
 	return metric.Render()
