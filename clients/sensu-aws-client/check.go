@@ -5,22 +5,92 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/mitchellh/goamz/aws"
-	"github.com/mitchellh/goamz/ec2"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/upfluence/sensu-client-go/sensu"
 	"github.com/upfluence/sensu-client-go/sensu/check"
 	"github.com/upfluence/sensu-client-go/sensu/handler"
 	"github.com/upfluence/sensu-client-go/sensu/transport"
 )
 
-func buildEc2Client() *ec2.EC2 {
-	auth := aws.Auth{os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY"), ""}
-	return ec2.New(auth, aws.USEast)
+var rdsMetrics = []string{"DiskQueueDepth", "ReadIOPS", "WriteIOPS", "CPUUtilization"}
+
+func buildAWSSession() *session.Session {
+	return session.New(
+		&aws.Config{
+			Credentials: credentials.NewEnvCredentials(),
+			Region:      aws.String("us-east-1"),
+		},
+	)
+}
+
+func RDSMetrics() check.ExtensionCheckResult {
+	cwClient := cloudwatch.New(buildAWSSession())
+	rdsClient := rds.New(buildAWSSession())
+
+	metric := handler.Metric{}
+
+	r, err := rdsClient.DescribeDBInstances(&rds.DescribeDBInstancesInput{})
+
+	if err != nil {
+		return metric.Render()
+	}
+
+	for _, instance := range r.DBInstances {
+		for _, m := range rdsMetrics {
+			r, err := cwClient.GetMetricStatistics(
+				&cloudwatch.GetMetricStatisticsInput{
+					Dimensions: []*cloudwatch.Dimension{
+						&cloudwatch.Dimension{
+							Name:  aws.String("DBInstanceIdentifier"),
+							Value: instance.DBInstanceIdentifier,
+						},
+					},
+					EndTime:    aws.Time(time.Now()),
+					StartTime:  aws.Time(time.Now().Add(-60 * time.Second)),
+					Namespace:  aws.String("AWS/RDS"),
+					Period:     aws.Int64(60),
+					MetricName: aws.String(m),
+					Statistics: []*string{
+						aws.String("Maximum"),
+						aws.String("Minimum"),
+						aws.String("Sum"),
+						aws.String("Average"),
+						aws.String("SampleCount"),
+					},
+				},
+			)
+
+			if err != nil {
+				log.Printf(
+					"%s - %s: %s",
+					instance.DBInstanceIdentifier,
+					m,
+					err.Error(),
+				)
+			}
+
+			prefix := fmt.Sprintf("rds.%s.%s", *instance.DBInstanceIdentifier, m)
+
+			for _, point := range r.Datapoints {
+				metric.AddPoint(&handler.Point{prefix + ".Maximum", *point.Maximum})
+				metric.AddPoint(&handler.Point{prefix + ".Minimum", *point.Minimum})
+				metric.AddPoint(&handler.Point{prefix + ".Sum", *point.Sum})
+				metric.AddPoint(&handler.Point{prefix + ".Average", *point.Average})
+				metric.AddPoint(&handler.Point{prefix + ".SampleCount", *point.SampleCount})
+			}
+		}
+	}
+
+	return metric.Render()
 }
 
 func testCoreInstances(test func(string) bool) ([]string, error) {
@@ -28,10 +98,10 @@ func testCoreInstances(test func(string) bool) ([]string, error) {
 		mu              sync.Mutex
 		wg              sync.WaitGroup
 		failedInstances []string
-		client          = buildEc2Client()
+		client          = ec2.New(buildAWSSession())
 	)
 
-	r, err := client.Instances([]string{}, nil)
+	r, err := client.DescribeInstances(&ec2.DescribeInstancesInput{})
 
 	if err != nil {
 		return failedInstances, err
@@ -42,8 +112,8 @@ func testCoreInstances(test func(string) bool) ([]string, error) {
 			name := ""
 
 			for _, tag := range instance.Tags {
-				if tag.Key == "Name" {
-					name = tag.Value
+				if *tag.Key == "Name" {
+					name = *tag.Value
 				}
 			}
 
@@ -58,13 +128,13 @@ func testCoreInstances(test func(string) bool) ([]string, error) {
 			go func() {
 				defer wg.Done()
 
-				if !test(instance.PrivateIpAddress) {
+				if !test(*instance.PrivateIpAddress) {
 					log.Printf("%s: failed", name)
 
 					mu.Lock()
 					defer mu.Unlock()
 
-					failedInstances = append(failedInstances, instance.InstanceId)
+					failedInstances = append(failedInstances, *instance.InstanceId)
 				}
 			}()
 		}
@@ -135,9 +205,9 @@ func EtcdGlobalCheck() check.ExtensionCheckResult {
 }
 
 func AWSCheck() check.ExtensionCheckResult {
-	client := buildEc2Client()
+	client := ec2.New(buildAWSSession())
 
-	r, err := client.DescribeInstanceStatus(&ec2.DescribeInstanceStatus{}, nil)
+	r, err := client.DescribeInstanceStatus(&ec2.DescribeInstanceStatusInput{})
 
 	if err != nil {
 		return handler.Error(fmt.Sprintf("aws: %s", err.Error()))
@@ -145,12 +215,12 @@ func AWSCheck() check.ExtensionCheckResult {
 
 	failedInstances := []string{}
 
-	for _, status := range r.InstanceStatus {
-		log.Println(status.InstanceId)
-		if status.InstanceState.Code == 16 &&
-			(status.SystemStatus.Status != "ok" ||
-				status.InstanceStatus.Status != "ok") {
-			failedInstances = append(failedInstances, status.InstanceId)
+	for _, status := range r.InstanceStatuses {
+		log.Println(*status.InstanceId)
+		if *status.InstanceState.Code == 16 &&
+			(*status.SystemStatus.Status != "ok" ||
+				*status.InstanceStatus.Status != "ok") {
+			failedInstances = append(failedInstances, *status.InstanceId)
 		}
 	}
 
@@ -173,6 +243,7 @@ func main() {
 	check.Store["aws-nodes-health-check"] = &check.ExtensionCheck{AWSCheck}
 	check.Store["aws-nodes-etcd-check"] = &check.ExtensionCheck{EtcdGlobalCheck}
 	check.Store["aws-nodes-ssh-check"] = &check.ExtensionCheck{SSHGlobalCheck}
+	check.Store["aws-rds-metric"] = &check.ExtensionCheck{RDSMetrics}
 
 	client.Start()
 }
