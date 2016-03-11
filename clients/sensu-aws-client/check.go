@@ -21,7 +21,16 @@ import (
 	"github.com/upfluence/sensu-client-go/sensu/transport"
 )
 
-var rdsMetrics = []string{"DiskQueueDepth", "ReadIOPS", "WriteIOPS", "CPUUtilization"}
+var rdsMetrics = []string{
+	"DiskQueueDepth",
+	"ReadIOPS",
+	"WriteIOPS",
+	"CPUUtilization",
+	"DatabaseConnections",
+	"FreeableMemory",
+	"FreeStorageSpace",
+	"SwapUsage",
+}
 
 func buildAWSSession() *session.Session {
 	return session.New(
