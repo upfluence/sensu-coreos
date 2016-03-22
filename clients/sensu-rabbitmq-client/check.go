@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	MEMORY_WARNING = 1480
-	MEMORY_ERROR   = 1580
+	MEMORY_WARNING = 1300
+	MEMORY_ERROR   = 1390
 
 	DISK_WARNING            = 5120
 	DISK_ERROR              = 1024
@@ -36,8 +36,50 @@ func buildRabbitClient() (*rabbithole.Client, error) {
 	return rabbithole.NewClient(url, "", "")
 }
 
+func connectionMetrics() check.ExtensionCheckResult {
+	metric := handler.Metric{}
+	totalConns := 0
+	queuesByState := make(map[string]int)
+	client, err := buildRabbitClient()
+
+	if err != nil {
+		log.Println(err.Error())
+
+		return metric.Render()
+	}
+
+	cs, err := client.ListConnections()
+
+	if err != nil {
+		log.Println(err.Error())
+
+		return metric.Render()
+	}
+
+	for _, conn := range cs {
+		totalConns++
+		queuesByState[conn.State]++
+	}
+
+	for state, num := range queuesByState {
+		metric.AddPoint(
+			&handler.Point{
+				fmt.Sprintf("rabbitmq.connecitons.state.%s", state),
+				float64(num),
+			},
+		)
+	}
+
+	metric.AddPoint(
+		&handler.Point{"rabbitmq.connectoins.total", float64(totalConns)},
+	)
+
+	return metric.Render()
+}
+
 func queueMetrics() check.ExtensionCheckResult {
 	metric := handler.Metric{}
+	totalQueues := 0
 	client, err := buildRabbitClient()
 
 	if err != nil {
@@ -56,6 +98,7 @@ func queueMetrics() check.ExtensionCheckResult {
 	}
 
 	for _, q := range qs {
+		totalQueues++
 		if len(regx.Find([]byte(q.Name))) == 0 {
 			metric.AddPoint(
 				&handler.Point{
@@ -78,6 +121,8 @@ func queueMetrics() check.ExtensionCheckResult {
 			)
 		}
 	}
+
+	metric.AddPoint(&handler.Point{"rabbitmq.queues.total", float64(totalQueues)})
 
 	return metric.Render()
 }
@@ -349,11 +394,26 @@ func main() {
 	check.Store["rabbitmq-disk-check"] = &check.ExtensionCheck{diskCheck.Check}
 	check.Store["rabbitmq-disk-metric"] = &check.ExtensionCheck{diskCheck.Metric}
 
+	fdCheck := &Check{
+		Type:   "fd",
+		Method: func(n rabbithole.NodeInfo) int { return n.FdUsed },
+	}
+	check.Store["rabbitmq-fd-metric"] = &check.ExtensionCheck{fdCheck.Metric}
+
+	socketCheck := &Check{
+		Type:   "socket",
+		Method: func(n rabbithole.NodeInfo) int { return n.SocketsUsed },
+	}
+	check.Store["rabbitmq-socket-metric"] = &check.ExtensionCheck{socketCheck.Metric}
+
 	check.Store["rabbitmq-cluster-size"] = &check.ExtensionCheck{
 		ClusterSizeCheck,
 	}
 
 	check.Store["rabbitmq-queues-metric"] = &check.ExtensionCheck{queueMetrics}
+	check.Store["rabbitmq-connections-metric"] = &check.ExtensionCheck{
+		connectionMetrics,
+	}
 
 	client.Start()
 }
