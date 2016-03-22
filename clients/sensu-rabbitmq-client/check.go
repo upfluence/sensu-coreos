@@ -394,6 +394,18 @@ func main() {
 	check.Store["rabbitmq-disk-check"] = &check.ExtensionCheck{diskCheck.Check}
 	check.Store["rabbitmq-disk-metric"] = &check.ExtensionCheck{diskCheck.Metric}
 
+	fdCheck := &Check{
+		Type:   "fd",
+		Method: func(n rabbithole.NodeInfo) int { return n.FdUsed },
+	}
+	check.Store["rabbitmq-fd-metric"] = &check.ExtensionCheck{fdCheck.Metric}
+
+	socketCheck := &Check{
+		Type:   "socket",
+		Method: func(n rabbithole.NodeInfo) int { return n.SocketsUsed },
+	}
+	check.Store["rabbitmq-socket-metric"] = &check.ExtensionCheck{socketCheck.Metric}
+
 	check.Store["rabbitmq-cluster-size"] = &check.ExtensionCheck{
 		ClusterSizeCheck,
 	}
