@@ -36,6 +36,47 @@ func buildRabbitClient() (*rabbithole.Client, error) {
 	return rabbithole.NewClient(url, "", "")
 }
 
+func connectionMetrics() check.ExtensionCheckResult {
+	metric := handler.Metric{}
+	totalConns := 0
+	queuesByState := make(map[string]int)
+	client, err := buildRabbitClient()
+
+	if err != nil {
+		log.Println(err.Error())
+
+		return metric.Render()
+	}
+
+	cs, err := client.ListConnections()
+
+	if err != nil {
+		log.Println(err.Error())
+
+		return metric.Render()
+	}
+
+	for _, conn := range cs {
+		totalConns++
+		queuesByState[conn.State]++
+	}
+
+	for state, num := range queuesByState {
+		metric.AddPoint(
+			&handler.Point{
+				fmt.Sprintf("rabbitmq.connecitons.state.%s", state),
+				float64(num),
+			},
+		)
+	}
+
+	metric.AddPoint(
+		&handler.Point{"rabbitmq.connectoins.total", float64(totalConns)},
+	)
+
+	return metric.Render()
+}
+
 func queueMetrics() check.ExtensionCheckResult {
 	metric := handler.Metric{}
 	client, err := buildRabbitClient()
