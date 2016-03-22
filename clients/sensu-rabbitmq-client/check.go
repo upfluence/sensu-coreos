@@ -79,6 +79,7 @@ func connectionMetrics() check.ExtensionCheckResult {
 
 func queueMetrics() check.ExtensionCheckResult {
 	metric := handler.Metric{}
+	totalQueues := 0
 	client, err := buildRabbitClient()
 
 	if err != nil {
@@ -97,6 +98,7 @@ func queueMetrics() check.ExtensionCheckResult {
 	}
 
 	for _, q := range qs {
+		totalQueues++
 		if len(regx.Find([]byte(q.Name))) == 0 {
 			metric.AddPoint(
 				&handler.Point{
@@ -119,6 +121,8 @@ func queueMetrics() check.ExtensionCheckResult {
 			)
 		}
 	}
+
+	metric.AddPoint(&handler.Point{"rabbitmq.queues.total", float64(totalQueues)})
 
 	return metric.Render()
 }
