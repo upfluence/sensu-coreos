@@ -411,6 +411,9 @@ func main() {
 	}
 
 	check.Store["rabbitmq-queues-metric"] = &check.ExtensionCheck{queueMetrics}
+	check.Store["rabbitmq-connections-metric"] = &check.ExtensionCheck{
+		connectionMetrics,
+	}
 
 	client.Start()
 }
