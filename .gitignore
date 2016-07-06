@@ -6,3 +6,4 @@ playground
 !**/sensu-*-client/Dockerfile
 !**/sensu-host-client/dist/sensu-host-client
 clients/*/sensu-*-client
+handlers/*/sensu-*-handler
