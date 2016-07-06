@@ -1,0 +1,7 @@
+#!/bin/sh
+
+GOOS=linux CGO_ENABLED=0 GOARCH=amd64 go build \
+  -o sensu-librato-handler -installsuffix netgo -a
+
+docker build -t upfluence/sensu-librato-handler:latest .
+docker push upfluence/sensu-librato-handler
