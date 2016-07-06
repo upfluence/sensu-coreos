@@ -104,14 +104,37 @@ func fetchThreshold(key string, defaultValue int) float64 {
 	)
 
 	if err != nil {
+		log.Printf(
+			"%s: %s: %s, err: %s",
+			os.Getenv("SENSU_HOSTNAME"),
+			key,
+			bytefmt.ByteSize(uint64(defaultValue)),
+			err.Error(),
+		)
+
 		return float64(defaultValue)
 	}
 
 	size, err := bytefmt.ToBytes(resp.Node.Value)
 
 	if err != nil {
+		log.Printf(
+			"%s: %s: %s, err: %s",
+			os.Getenv("SENSU_HOSTNAME"),
+			key,
+			bytefmt.ByteSize(uint64(defaultValue)),
+			err.Error(),
+		)
+
 		return float64(defaultValue)
 	}
+
+	log.Printf(
+		"%s: %s: %s",
+		os.Getenv("SENSU_HOSTNAME"),
+		key,
+		bytefmt.ByteSize(uint64(defaultValue)),
+	)
 
 	return float64(size)
 }
