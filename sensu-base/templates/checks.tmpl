@@ -2,13 +2,12 @@
   "checks" : {
     {{range gets "/sensu/checks/*"}}
     "{{base .Key}}": {{.Value}},
-    {{else}}
-     "useless" : {
+    {{end}}
+    "useless" : {
       "handlers": [],
       "subscribers": [],
       "command": "/bin/echo 'foo'",
       "interval": 3600
     }
-    {{end}}
   }
 }
