@@ -133,7 +133,7 @@ func fetchThreshold(key string, defaultValue int) float64 {
 		"%s: %s: %s",
 		os.Getenv("SENSU_HOSTNAME"),
 		key,
-		bytefmt.ByteSize(uint64(defaultValue)),
+		bytefmt.ByteSize(uint64(size)),
 	)
 
 	return float64(size)
