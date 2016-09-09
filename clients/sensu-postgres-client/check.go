@@ -22,7 +22,7 @@ func ConnectonMetric() check.ExtensionCheckResult {
 	metric := handler.Metric{}
 
 	for _, databaseURL := range strings.Split(os.Getenv("DATABASE_URL"), ",") {
-		var databaseName = strings.Split(databaseURL, ".")[0]
+		var databaseName = strings.Split(strings.Split(databaseURL, "@")[1], ".")[0]
 
 		db, err := sql.Open(
 			"postgres",
@@ -62,14 +62,14 @@ func ConnectonMetric() check.ExtensionCheckResult {
 
 			metric.AddPoint(
 				&handler.Point{
-					fmt.Sprintf("postgres.%s.%s.txs", databaseName, db),
+					fmt.Sprintf("postgres.%s.%s.txs", databaseName, name),
 					float64(txs),
 				},
 			)
 
 			metric.AddPoint(
 				&handler.Point{
-					fmt.Sprintf("postgres.%s.%s.dbsize", databaseName, db),
+					fmt.Sprintf("postgres.%s.%s.dbsize", databaseName, name),
 					float64(size),
 				},
 			)
