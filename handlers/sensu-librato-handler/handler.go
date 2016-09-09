@@ -4,16 +4,16 @@ import (
 	"os"
 	"strings"
 
-	"github.com/rcrowley/go-librato"
+	"github.com/samuel/go-librato/librato"
 	"github.com/upfluence/sensu-go/sensu/check/output"
-	"github.com/upfluence/sensu-go/sensu/event"
 	"github.com/upfluence/sensu-go/sensu/transport/rabbitmq"
+	"github.com/upfluence/sensu-handler-go/Godeps/_workspace/src/github.com/upfluence/sensu-go/sensu/event"
 	"github.com/upfluence/sensu-handler-go/sensu"
 	"github.com/upfluence/sensu-handler-go/sensu/handler"
 )
 
 type libratoHandler struct {
-	email, apiKey string
+	client *librato.Client
 }
 
 func shrinkName(name string) string {
@@ -27,24 +27,21 @@ func (h *libratoHandler) Handle(e *event.Event) error {
 		return err
 	}
 
-	collector := librato.NewCollatedMetrics(
-		h.email,
-		h.apiKey,
-		e.Client.Name,
-		len(metric.Points),
-	)
+	metrics := &librato.Metrics{}
 
 	for _, point := range metric.Points {
-		collector.GetCustomGauge(shrinkName(point.Name)) <- map[string]int64{
-			"value":        int64(point.Value),
-			"measure_time": point.Timestamp,
-		}
+		metrics.Gauges = append(
+			metrics.Gauges,
+			librato.Metric{
+				Name:        shrinkName(point.Name),
+				Value:       point.Value,
+				MeasureTime: point.Timestamp,
+				Source:      e.Client.Name,
+			},
+		)
 	}
 
-	collector.Wait()
-	collector.Close()
-
-	return nil
+	return h.client.PostMetrics(metrics)
 }
 
 const defaultAMQPUrl = "amqp://guest:guest@localhost:5672/%2f"
@@ -57,8 +54,7 @@ func main() {
 	}
 
 	handler.Store["librato-handler"] = &libratoHandler{
-		os.Getenv("LIBRATO_EMAIL"),
-		os.Getenv("LIBRATO_API_KEY"),
+		&librato.Client{os.Getenv("LIBRATO_EMAIL"), os.Getenv("LIBRATO_API_KEY")},
 	}
 
 	sensu.NewHandler(
