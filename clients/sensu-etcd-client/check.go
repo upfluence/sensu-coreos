@@ -13,7 +13,7 @@ import (
 	"github.com/upfluence/sensu-client-go/sensu"
 	"github.com/upfluence/sensu-client-go/sensu/check"
 	"github.com/upfluence/sensu-client-go/sensu/handler"
-	"github.com/upfluence/sensu-client-go/sensu/transport"
+	"github.com/upfluence/sensu-go/sensu/transport/rabbitmq"
 )
 
 // Huge copy-pasty from etcdserver/stats, sorry about that :(
@@ -136,7 +136,7 @@ func EtcdCheck() check.ExtensionCheckResult {
 
 func main() {
 	cfg := sensu.NewConfigFromFlagSet(sensu.ExtractFlags())
-	t := transport.NewRabbitMQTransport(cfg)
+	t := rabbitmq.NewRabbitMQTransport(cfg.RabbitMQURI())
 	client := sensu.NewClient(t, cfg)
 
 	check.Store["sensu-etcd-client"] = &check.ExtensionCheck{EtcdCheck}

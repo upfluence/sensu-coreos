@@ -12,7 +12,7 @@ import (
 	"github.com/upfluence/sensu-client-go/sensu"
 	"github.com/upfluence/sensu-client-go/sensu/check"
 	"github.com/upfluence/sensu-client-go/sensu/handler"
-	"github.com/upfluence/sensu-client-go/sensu/transport"
+	"github.com/upfluence/sensu-go/sensu/transport"
 	"github.com/upfluence/thrift-amqp-go/amqp_thrift"
 	"github.com/upfluence/thrift/lib/go/thrift"
 

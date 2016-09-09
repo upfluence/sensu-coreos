@@ -15,7 +15,7 @@ import (
 	"github.com/upfluence/sensu-client-go/sensu"
 	"github.com/upfluence/sensu-client-go/sensu/check"
 	"github.com/upfluence/sensu-client-go/sensu/handler"
-	"github.com/upfluence/sensu-client-go/sensu/transport"
+	"github.com/upfluence/sensu-go/sensu/transport/rabbitmq"
 	"github.com/upfluence/thrift-amqp-go/amqp_thrift"
 	"github.com/upfluence/thrift/lib/go/thrift"
 )
@@ -314,7 +314,7 @@ func durationCheck() check.ExtensionCheckResult {
 func main() {
 	cfg := sensu.NewConfigFromFlagSet(sensu.ExtractFlags())
 
-	t := transport.NewRabbitMQTransport(cfg)
+	t := rabbitmq.NewRabbitMQTransport(cfg.RabbitMQURI())
 	client := sensu.NewClient(t, cfg)
 
 	check.Store["thrift-status-check"] = &check.ExtensionCheck{statusCheck}

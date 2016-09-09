@@ -18,7 +18,7 @@ import (
 	"github.com/upfluence/sensu-client-go/sensu"
 	"github.com/upfluence/sensu-client-go/sensu/check"
 	"github.com/upfluence/sensu-client-go/sensu/handler"
-	"github.com/upfluence/sensu-client-go/sensu/transport"
+	"github.com/upfluence/sensu-go/sensu/transport/rabbitmq"
 )
 
 var rdsMetrics = []string{
@@ -246,7 +246,7 @@ func AWSCheck() check.ExtensionCheckResult {
 func main() {
 	cfg := sensu.NewConfigFromFlagSet(sensu.ExtractFlags())
 
-	t := transport.NewRabbitMQTransport(cfg)
+	t := rabbitmq.NewRabbitMQTransport(cfg.RabbitMQURI())
 	client := sensu.NewClient(t, cfg)
 
 	check.Store["aws-nodes-health-check"] = &check.ExtensionCheck{AWSCheck}
