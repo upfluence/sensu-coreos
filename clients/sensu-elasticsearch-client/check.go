@@ -15,7 +15,7 @@ import (
 
 const (
 	EXPECTED_CLUSTER_SIZE = 3
-	WARNING_HEAP_SIZE     = 60
+	WARNING_HEAP_SIZE     = 70
 	ERROR_HEAP_SIZE       = 80
 )
 
