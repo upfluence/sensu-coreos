@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"database/sql"
 	_ "github.com/lib/pq"
@@ -14,98 +15,125 @@ import (
 )
 
 type ConnBreakdown struct {
-	Idle, Active int
+	Total, Idle, Active int
 }
 
 func ConnectonMetric() check.ExtensionCheckResult {
 	metric := handler.Metric{}
-	db, err := sql.Open(
-		"postgres",
-		fmt.Sprintf("%s?sslmode=disable", os.Getenv("DATABASE_URL")),
-	)
 
-	if err != nil {
-		return metric.Render()
-	}
+	for _, databaseURL := range strings.Split(os.Getenv("DATABASE_URL"), ",") {
+		var databaseName = strings.Split(databaseURL, ".")[0]
 
-	defer db.Close()
+		db, err := sql.Open(
+			"postgres",
+			fmt.Sprintf("%s?sslmode=disable", databaseURL),
+		)
 
-	rowsDatabases, err := db.Query(
-		"SELECT datname FROM pg_database WHERE datistemplate = false",
-	)
-
-	if err != nil {
-		log.Println(err.Error())
-		return metric.Render()
-	}
-
-	defer rowsDatabases.Close()
-
-	dbs := []string{}
-
-	for rowsDatabases.Next() {
-		var name string
-		if err := rowsDatabases.Scan(&name); err != nil {
+		if err != nil {
 			log.Println(err.Error())
-		}
-
-		dbs = append(dbs, name)
-	}
-
-	r := make(map[string]*ConnBreakdown)
-
-	for _, db := range dbs {
-		r[db] = &ConnBreakdown{}
-	}
-
-	rowsConns, err := db.Query("SELECT datname, state FROM pg_stat_activity")
-
-	if err != nil {
-		return metric.Render()
-	}
-
-	defer rowsConns.Close()
-
-	for rowsConns.Next() {
-		var name string
-		var status string
-
-		if err := rowsConns.Scan(&name, &status); err != nil {
-			log.Println(err.Error())
-		}
-
-		if _, ok := r[name]; !ok {
 			continue
 		}
 
-		if status == "active" {
-			r[name].Active++
-		} else if status == "idle" {
-			r[name].Idle++
+		defer db.Close()
+
+		rowsDatabases, err := db.Query(
+			"SELECT datname, pg_database_size(datname), pg_stat_get_db_xact_commit(oid)+pg_stat_get_db_xact_rollback(oid)  FROM pg_database WHERE datname != 'rdsadmin' AND datistemplate = false",
+		)
+
+		if err != nil {
+			log.Println(err.Error())
+			continue
 		}
-	}
 
-	for db, val := range r {
-		metric.AddPoint(
-			&handler.Point{
-				fmt.Sprintf("postgres.%s.active", db),
-				float64(val.Active),
-			},
-		)
+		defer rowsDatabases.Close()
 
-		metric.AddPoint(
-			&handler.Point{
-				fmt.Sprintf("postgres.%s.idle", db),
-				float64(val.Idle),
-			},
-		)
+		dbs := []string{}
 
-		metric.AddPoint(
-			&handler.Point{
-				fmt.Sprintf("postgres.%s.total", db),
-				float64(val.Active + val.Idle),
-			},
-		)
+		for rowsDatabases.Next() {
+			var (
+				name      string
+				size, txs int64
+			)
+
+			if err := rowsDatabases.Scan(&name, &size, &txs); err != nil {
+				log.Println(err.Error())
+				continue
+			}
+
+			metric.AddPoint(
+				&handler.Point{
+					fmt.Sprintf("postgres.%s.%s.txs", databaseName, db),
+					float64(txs),
+				},
+			)
+
+			metric.AddPoint(
+				&handler.Point{
+					fmt.Sprintf("postgres.%s.%s.dbsize", databaseName, db),
+					float64(size),
+				},
+			)
+
+			dbs = append(dbs, name)
+		}
+
+		r := make(map[string]*ConnBreakdown)
+
+		for _, db := range dbs {
+			r[db] = &ConnBreakdown{}
+		}
+
+		rowsConns, err := db.Query("SELECT datname, state FROM pg_stat_activity")
+
+		if err != nil {
+			log.Println(err.Error())
+			continue
+		}
+
+		defer rowsConns.Close()
+
+		for rowsConns.Next() {
+			var name string
+			var status string
+
+			if err := rowsConns.Scan(&name, &status); err != nil {
+				log.Println(err.Error())
+			}
+
+			if _, ok := r[name]; !ok {
+				continue
+			}
+
+			if status == "active" {
+				r[name].Active++
+			} else if status == "idle" {
+				r[name].Idle++
+			}
+			r[name].Total++
+		}
+
+		for db, val := range r {
+			metric.AddPoint(
+				&handler.Point{
+					fmt.Sprintf("postgres.%s.%s.active", databaseName, db),
+					float64(val.Active),
+				},
+			)
+
+			metric.AddPoint(
+				&handler.Point{
+					fmt.Sprintf("postgres.%s.%s.idle", databaseName, db),
+					float64(val.Idle),
+				},
+			)
+
+			metric.AddPoint(
+				&handler.Point{
+					fmt.Sprintf("postgres.%s.%s.total", databaseName, db),
+					float64(val.Total),
+				},
+			)
+		}
 	}
 
 	return metric.Render()
