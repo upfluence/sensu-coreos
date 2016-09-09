@@ -68,13 +68,7 @@ func RDSMetrics() check.ExtensionCheckResult {
 					Namespace:  aws.String("AWS/RDS"),
 					Period:     aws.Int64(60),
 					MetricName: aws.String(m),
-					Statistics: []*string{
-						aws.String("Maximum"),
-						aws.String("Minimum"),
-						aws.String("Sum"),
-						aws.String("Average"),
-						aws.String("SampleCount"),
-					},
+					Statistics: []*string{aws.String("Average")},
 				},
 			)
 
@@ -90,11 +84,7 @@ func RDSMetrics() check.ExtensionCheckResult {
 			prefix := fmt.Sprintf("rds.%s.%s", *instance.DBInstanceIdentifier, m)
 
 			for _, point := range r.Datapoints {
-				metric.AddPoint(&handler.Point{prefix + ".Maximum", *point.Maximum})
-				metric.AddPoint(&handler.Point{prefix + ".Minimum", *point.Minimum})
-				metric.AddPoint(&handler.Point{prefix + ".Sum", *point.Sum})
 				metric.AddPoint(&handler.Point{prefix + ".Average", *point.Average})
-				metric.AddPoint(&handler.Point{prefix + ".SampleCount", *point.SampleCount})
 			}
 		}
 	}
