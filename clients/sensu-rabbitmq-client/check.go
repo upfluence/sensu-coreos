@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -17,8 +18,8 @@ import (
 )
 
 const (
-	MEMORY_WARNING = 1300
-	MEMORY_ERROR   = 1390
+	MEMORY_WARNING = 3200
+	MEMORY_ERROR   = 3500
 
 	DISK_WARNING            = 5120
 	DISK_ERROR              = 1024
@@ -27,13 +28,18 @@ const (
 )
 
 func buildRabbitClient() (*rabbithole.Client, error) {
-	url := "http://guest:guest@localhost:15672"
+	u := "http://guest:guest@localhost:15672"
 
 	if os.Getenv("RABBITMQ_ADMIN_URL") != "" {
-		url = os.Getenv("RABBITMQ_ADMIN_URL")
+		u = os.Getenv("RABBITMQ_ADMIN_URL")
 	}
 
-	return rabbithole.NewClient(url, "", "")
+	if parsedUrl, err := url.Parse(u); err == nil && parsedUrl.User != nil {
+		pass, _ := parsedUrl.User.Password()
+		return rabbithole.NewClient(u, parsedUrl.User.Username(), pass)
+	} else {
+		return rabbithole.NewClient(u, "", "")
+	}
 }
 
 func connectionMetrics() check.ExtensionCheckResult {
