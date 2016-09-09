@@ -15,8 +15,8 @@ import (
 
 const (
 	EXPECTED_CLUSTER_SIZE = 3
-	WARNING_HEAP_SIZE     = 70
-	ERROR_HEAP_SIZE       = 80
+	WARNING_HEAP_SIZE     = 80
+	ERROR_HEAP_SIZE       = 90
 )
 
 func elasticsearchConn() (*elastigo.Conn, error) {
