@@ -18,13 +18,16 @@ import (
 )
 
 type BackendConfiguration struct {
-	WarningThreshold int `json:"warning_threshold"`
-	ErrorThreshold   int `json:"error_threshold"`
+	WarningThreshold int     `json:"warning_threshold"`
+	ErrorThreshold   int     `json:"error_threshold"`
+	VulcandURL       *string `json:"vulcand_url,omitempty"`
 }
 
-func GetVulcandServers(backend string) (int, error) {
+func GetVulcandServers(backend string, url *string) (int, error) {
 	vulcandURL := "http://172.17.42.1:8182"
-	if url := os.Getenv("VULCAND_URL"); url != "" {
+	if url != nil {
+		vulcandURL = *url
+	} else if url := os.Getenv("VULCAND_URL"); url != "" {
 		vulcandURL = url
 	}
 
@@ -54,7 +57,6 @@ func GetBackends() (map[string]BackendConfiguration, error) {
 
 	for _, node := range resp.Node.Nodes {
 		var conf BackendConfiguration
-
 		err := json.Unmarshal([]byte(node.Value), &conf)
 
 		if err != nil {
@@ -85,14 +87,14 @@ func VulcandServersCheck() check.ExtensionCheckResult {
 		handler.Error(fmt.Sprintf("etcd error: %s", err.Error()))
 	}
 
-	for backend, conf := range backends {
-		nb, err := GetVulcandServers(backend)
+	for backend, cfg := range backends {
+		nb, err := GetVulcandServers(backend, cfg.VulcandURL)
 
 		if err != nil {
 			errors = append(errors, fmt.Sprintf("%s error:%s", backend, err.Error()))
-		} else if nb <= conf.ErrorThreshold {
+		} else if nb <= cfg.ErrorThreshold {
 			errors = append(errors, fmt.Sprintf("%s servers:%d", backend, nb))
-		} else if nb <= conf.WarningThreshold {
+		} else if nb <= cfg.WarningThreshold {
 			warnings = append(warnings, fmt.Sprintf("%s servers:%d", backend, nb))
 		}
 	}
@@ -117,8 +119,8 @@ func VulcandServersMetric() check.ExtensionCheckResult {
 		return metric.Render()
 	}
 
-	for backend, _ := range backends {
-		nb, err := GetVulcandServers(backend)
+	for backend, cfg := range backends {
+		nb, err := GetVulcandServers(backend, cfg.VulcandURL)
 
 		if err == nil {
 			metric.AddPoint(
